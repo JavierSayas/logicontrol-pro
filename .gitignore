@@ -11,6 +11,26 @@ node_modules
 dist
 dist-ssr
 *.local
+.idx/mcp.json
+.mcp.json
+
+# Scripts locales con credenciales
+check_*.mjs
+check_*.js
+setup-db.js
+query_tables.mjs
+create_agencias_transporte.mjs
+scripts/
+
+# Documentación interna
+AGENT-SETUP.md
+AGENTS-OVERVIEW.md
+REDESIGN-SUMMARY.md
+
+# Reportes de auditoría/diseño
+.auditrc.json
+.designrc.json
+design-reports/
 
 # Editor directories and files
 .vscode/*
