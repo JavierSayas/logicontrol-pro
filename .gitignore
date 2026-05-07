@@ -11,8 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 .idx/mcp.json
 .mcp.json
+.netlify/
 
 # Scripts locales con credenciales
 check_*.mjs
