@@ -5,8 +5,10 @@ import { useAuthStore } from './stores/auth'
 import OrdenDeCarga from './components/OrdenDeCarga.vue'
 import CartelesPT from './components/CartelesPT.vue'
 import Basculas from './components/Basculas.vue'
+import CuadrePT from './components/CuadrePT.vue'
+import Lidl from './components/Lidl.vue'
 import Login from './components/Login.vue'
-import { Truck, Tag, Scale, ClipboardList, LogOut } from 'lucide-vue-next'
+import { Truck, Tag, Scale, ClipboardList, Building2, LogOut } from 'lucide-vue-next'
 
 const store = useLogisticsStore()
 const auth = useAuthStore()
@@ -15,6 +17,8 @@ const tabs = [
   { id: 'pedidos', label: 'Orden de Carga', icon: Truck },
   { id: 'carteles', label: 'Carteles PT', icon: Tag },
   { id: 'basculas', label: 'Básculas', icon: Scale },
+  { id: 'cuadre', label: 'Cuadre PT', icon: ClipboardList },
+  { id: 'lidl', label: 'Lidl', icon: Building2 },
 ]
 
 onMounted(() => {
@@ -42,7 +46,7 @@ async function handleLogout() {
               <Truck class="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 class="text-2xl font-900 text-slate-900 tracking-tight">LogiControl Pro</h1>
+              <h1 class="text-2xl font-900 text-slate-900 tracking-tight">LogisPro</h1>
               <p class="text-xs text-slate-500 font-medium">Gestión de Órdenes de Carga</p>
             </div>
           </div>
@@ -93,6 +97,8 @@ async function handleLogout() {
         <OrdenDeCarga v-if="store.activeTab === 'pedidos'" />
         <CartelesPT v-else-if="store.activeTab === 'carteles'" />
         <Basculas v-else-if="store.activeTab === 'basculas'" />
+        <CuadrePT v-else-if="store.activeTab === 'cuadre'" />
+        <Lidl v-else-if="store.activeTab === 'lidl'" />
       </keep-alive>
     </main>
   </div>

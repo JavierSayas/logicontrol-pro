@@ -36,7 +36,7 @@ async function cargarPlataformas() {
   try {
     const { data, error } = await supabaseOrigen
       .from('plataformas')
-      .select('id, nombre, destino_sap, direccion, empresa_transporte')
+      .select('id, nombre, nombre_csv, direccion, empresa_transporte')
       .eq('activo', true)
       .order('nombre')
 

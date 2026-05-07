@@ -13,7 +13,7 @@ async function addTransportistasPages(doc, datosParaPDF) {
   const { data: matches, error: errMatch } = await supabaseOrigen
     .from('plataformas')
     .select('empresa_transporte')
-    .in('destino_sap', destinos)
+    .in('nombre_csv', destinos)
     .eq('activo', true);
 
   if (errMatch) throw errMatch;

@@ -38,7 +38,7 @@ const handleLogin = async () => {
       <div class="login-brand">
         <div class="brand-inner login-fade-in">
           <div class="brand-badge">LP</div>
-          <h1 class="brand-title">LogiControl<br>Pro</h1>
+          <h1 class="brand-title">LogisPro</h1>
           <div class="brand-line"></div>
           <p class="brand-sub">Gestion de Ordenes de Carga</p>
         </div>
@@ -69,7 +69,7 @@ const handleLogin = async () => {
             </button>
           </form>
 
-          <p class="form-footer">LOGICONTROL PRO &mdash; ACCESO RESTRINGIDO</p>
+          <p class="form-footer">LOGISPRO &mdash; ACCESO RESTRINGIDO</p>
         </div>
       </div>
     </div>
@@ -78,7 +78,7 @@ const handleLogin = async () => {
       <div class="mobile-header">
         <div class="mobile-badge">LP</div>
         <div>
-          <h1 class="mobile-title">LogiControl Pro</h1>
+          <h1 class="mobile-title">LogisPro</h1>
           <p class="mobile-sub">Operaciones</p>
         </div>
       </div>
