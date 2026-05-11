@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onActivated, onBeforeUnmount, nextTick } from 'vue'
 import { supabaseOrigen } from '../lib/supabase'
 import { ChevronLeft, ChevronRight, MousePointer, X } from 'lucide-vue-next'
 
@@ -305,6 +305,8 @@ onMounted(async () => {
   window.addEventListener('mouseup', onSelMouseup)
 })
 
+onActivated(() => scrollToHoy())
+
 onBeforeUnmount(() => {
   window.removeEventListener('mouseup', onSelMouseup)
   if (realtimeChannel) supabaseOrigen.removeChannel(realtimeChannel)
@@ -345,8 +347,19 @@ const tableContainer = ref(null)
 
 const scrollToHoy = async () => {
   await nextTick()
-  const el = tableContainer.value?.querySelector(`[data-fecha="${hoy}"]`)
-  if (el) el.scrollIntoView({ block: 'center' })
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const container = tableContainer.value
+      if (!container) return
+      const el = container.querySelector(`[data-fecha="${hoy}"]`)
+      if (!el) return
+      const containerRect = container.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      const elTopInContainer = container.scrollTop + (elRect.top - containerRect.top)
+      const targetScroll = elTopInContainer - (container.clientHeight / 2) + (el.clientHeight / 2)
+      container.scrollTop = Math.max(0, targetScroll)
+    })
+  })
 }
 </script>
 
