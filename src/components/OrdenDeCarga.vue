@@ -2,9 +2,12 @@
 import { ref, computed } from 'vue';
 import { useLogisticsStore } from '../stores/logistics';
 import { supabaseOrigen } from '../lib/supabase';
-import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle, XCircle } from 'lucide-vue-next';
+import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle, Save } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import Card from './ui/Card.vue';
+import Button from './ui/Button.vue';
+import PageHeader from './ui/PageHeader.vue';
 
 async function addTransportistasPages(doc, datosParaPDF) {
   const destinos = [...new Set(datosParaPDF.map(f => f.nombreDestino).filter(Boolean))];
@@ -126,7 +129,7 @@ function handlePaste(event) {
 
   if (lineas.length === 0) {
     error.value = 'Pega al menos una fila de datos.';
-    showToast('❌ No hay datos para pegar', 'error');
+    showToast('No hay datos para pegar', 'error');
     return;
   }
 
@@ -155,20 +158,20 @@ function handlePaste(event) {
 
   if (filas.length === 0) {
     error.value = 'No se han encontrado filas con datos.';
-    showToast('❌ No se encontraron datos válidos', 'error');
+    showToast('No se encontraron datos válidos', 'error');
     return;
   }
 
   store.setOrdenCarga(filas);
   error.value = '';
-  showToast(`✅ ${filas.length} filas cargadas correctamente`, 'success');
+  showToast(`${filas.length} filas cargadas correctamente`, 'success');
 }
 
 function limpiar() {
   error.value = '';
   filtroRuta.value = null;
   store.setOrdenCarga([]);
-  showToast('🔄 Carga limpiada', 'success');
+  showToast('Carga limpiada', 'success');
 }
 
 const filas = computed(() => store.ordenCargaData);
@@ -252,7 +255,7 @@ async function generarPDF() {
 
     if (datosParaPDF.length === 0) {
       error.value = 'No hay datos de DHL001 que coincidan con la fecha de operaciones.';
-      showToast('❌ No hay datos DHL001 para la fecha ' + store.fecha, 'error');
+      showToast('No hay datos DHL001 para la fecha ' + store.fecha, 'error');
       return;
     }
 
@@ -338,9 +341,9 @@ async function generarPDF() {
 
     const nombreArchivo = `DHL001_${store.fecha}.pdf`;
     doc.save(nombreArchivo);
-    showToast(`✅ PDF DHL001 descargado: ${nombreArchivo}`, 'success');
+    showToast(`PDF DHL001 descargado: ${nombreArchivo}`, 'success');
   } catch (err) {
-    showToast('❌ Error generando PDF: ' + err.message, 'error');
+    showToast('Error generando PDF: ' + err.message, 'error');
   }
 }
 
@@ -382,15 +385,15 @@ async function guardarOrden(tipoCarga = 'DHL001') {
     const resultado = await store.guardarOrdenCarga(tipoCarga);
 
     if (resultado.success) {
-      showToast(`✅ Orden ${tipoCarga} guardada exitosamente`, 'success');
+      showToast(`Orden ${tipoCarga} guardada correctamente`, 'success');
       await store.cargarOrdenesCarga();
     } else {
       error.value = `Error al guardar: ${resultado.error}`;
-      showToast(`❌ Error: ${resultado.error}`, 'error');
+      showToast(`Error: ${resultado.error}`, 'error');
     }
   } catch (err) {
     error.value = `Error: ${err.message}`;
-    showToast(`❌ Error al guardar orden: ${err.message}`, 'error');
+    showToast(`Error al guardar orden: ${err.message}`, 'error');
   }
 }
 
@@ -400,7 +403,7 @@ async function generarPDFInnnova() {
 
     if (datosParaPDF.length === 0) {
       error.value = 'No hay datos INNOVA cargados.';
-      showToast('❌ No hay datos INNOVA', 'error');
+      showToast('No hay datos INNOVA', 'error');
       return;
     }
 
@@ -486,9 +489,9 @@ async function generarPDFInnnova() {
 
     const nombreArchivo = `INNOVA_${store.fecha}.pdf`;
     doc.save(nombreArchivo);
-    showToast(`✅ PDF INNOVA descargado: ${nombreArchivo}`, 'success');
+    showToast(`PDF INNOVA descargado: ${nombreArchivo}`, 'success');
   } catch (err) {
-    showToast('❌ Error generando PDF: ' + err.message, 'error');
+    showToast('Error generando PDF: ' + err.message, 'error');
   }
 }
 
@@ -498,7 +501,7 @@ async function generarPDFMosca() {
 
     if (datosParaPDF.length === 0) {
       error.value = 'No hay datos MOSCA cargados.';
-      showToast('❌ No hay datos MOSCA', 'error');
+      showToast('No hay datos MOSCA', 'error');
       return;
     }
 
@@ -584,202 +587,168 @@ async function generarPDFMosca() {
 
     const nombreArchivo = `MOSCA_${store.fecha}.pdf`;
     doc.save(nombreArchivo);
-    showToast(`✅ PDF MOSCA descargado: ${nombreArchivo}`, 'success');
+    showToast(`PDF MOSCA descargado: ${nombreArchivo}`, 'success');
   } catch (err) {
-    showToast('❌ Error generando PDF: ' + err.message, 'error');
+    showToast('Error generando PDF: ' + err.message, 'error');
   }
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- TOAST NOTIFICATION -->
+  <div class="space-y-8">
     <transition name="slide-in">
       <div
         v-if="toast"
         :class="[
-          'fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg border animate-slide-in',
+          'fixed top-6 right-6 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg border z-50',
           toastType === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-red-50 border-red-200 text-red-900'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-red-50 border-red-200 text-red-800'
         ]"
       >
         <component
-          :is="toastType === 'success' ? CheckCircle : XCircle"
-          class="w-5 h-5 flex-shrink-0"
+          :is="toastType === 'success' ? CheckCircle2 : XCircle"
+          class="w-4 h-4 shrink-0"
         />
         <span class="font-medium text-sm">{{ toast }}</span>
       </div>
     </transition>
 
-    <!-- HEADER -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-3 rounded-xl">
-          <Truck class="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h2 class="font-900 text-slate-900 text-lg">Orden de Carga</h2>
-          <p class="text-sm text-slate-500 font-medium">
-            {{ hayDatos ? `${filas.length} posiciones cargadas` : 'Haz clic y pega datos con Ctrl+V' }}
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2 flex-wrap justify-end">
-        <button
-          v-if="hayDatos && !filtroRuta"
-          @click="filtrarPorDHL"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-amber-500',
-            cantidadDHL > 0 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
-          :disabled="cantidadDHL === 0"
-        >
-          DHL001 ({{ cantidadDHL }})
-        </button>
-        <button
-          v-if="hayDatos && !filtroRuta"
-          @click="filtrarPorINNOVA"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-violet-500',
-            cantidadINNOVA > 0 ? 'bg-violet-100 text-violet-700 hover:bg-violet-200 border border-violet-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
-          :disabled="cantidadINNOVA === 0"
-        >
-          INNOVA ({{ cantidadINNOVA }})
-        </button>
-        <button
-          v-if="hayDatos && !filtroRuta"
-          @click="filtrarPorMOSCA"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-teal-500',
-            cantidadMOSCA > 0 ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 border border-teal-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
-          :disabled="cantidadMOSCA === 0"
-        >
-          MOSCA ({{ cantidadMOSCA }})
-        </button>
-        <button
-          v-if="filtroRuta === 'DHL001'"
-          @click="generarPDF"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500',
-            filasParaPDF.length > 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed']"
-          :disabled="filasParaPDF.length === 0"
-          :title="filasParaPDF.length === 0 ? `No hay datos DHL001 con fecha ${store.fecha}` : 'Descargar PDF DHL001'"
-        >
-          <FileDown class="w-4 h-4" />
-          PDF ({{ filasParaPDF.length }})
-        </button>
-        <button
-          v-if="filtroRuta === 'INNOVA'"
-          @click="generarPDFInnnova"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500',
-            filasParaPDFInnnova.length > 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed']"
-          :disabled="filasParaPDFInnnova.length === 0"
-          :title="filasParaPDFInnnova.length === 0 ? 'No hay datos INNOVA' : 'Descargar PDF INNOVA'"
-        >
-          <FileDown class="w-4 h-4" />
-          PDF ({{ filasParaPDFInnnova.length }})
-        </button>
-        <button
-          v-if="filtroRuta === 'MOSCA'"
-          @click="generarPDFMosca"
-          :class="['flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500',
-            filasParaPDFMosca.length > 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed']"
-          :disabled="filasParaPDFMosca.length === 0"
-          :title="filasParaPDFMosca.length === 0 ? 'No hay datos MOSCA' : 'Descargar PDF MOSCA'"
-        >
-          <FileDown class="w-4 h-4" />
-          PDF ({{ filasParaPDFMosca.length }})
-        </button>
-        <button
-          v-if="filtroRuta"
-          @click="limpiarFiltro"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
-        >
-          Mostrar todo
-        </button>
-        <button
-          v-if="hayDatos && cantidadDHL > 0"
-          @click="guardarOrden('DHL001')"
-          :disabled="store.loading"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          💾 Guardar DHL
-        </button>
-        <button
-          v-if="hayDatos && cantidadINNOVA > 0"
-          @click="guardarOrden('INNOVA')"
-          :disabled="store.loading"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          💾 Guardar INNOVA
-        </button>
-        <button
-          v-if="hayDatos && cantidadMOSCA > 0"
-          @click="guardarOrden('MOSCA')"
-          :disabled="store.loading"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-        >
-          💾 Guardar MOSCA
-        </button>
-        <button
-          v-if="hayDatos"
-          @click="limpiar"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          <RefreshCw class="w-4 h-4" />
-          Nueva carga
-        </button>
-      </div>
-    </div>
-
-    <!-- TABLA -->
-    <div
-      class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-md"
-      @paste="handlePaste"
+    <PageHeader
+      caption="Logística"
+      :caption-icon="Truck"
+      theme="blue"
+      title="Orden de Carga"
+      :subtitle="hayDatos ? `${filas.length} posiciones cargadas` : 'Haz clic en la tabla y pega datos con Ctrl+V'"
     >
-      <div class="max-h-[600px] overflow-y-auto">
-        <table class="w-full text-sm border-collapse table-fixed">
+      <template #actions>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <button
+            v-if="hayDatos && !filtroRuta"
+            @click="filtrarPorDHL"
+            :disabled="cantidadDHL === 0"
+            :class="[
+              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
+              cantidadDHL > 0
+                ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
+            ]"
+          >
+            DHL001 · {{ cantidadDHL }}
+          </button>
+          <button
+            v-if="hayDatos && !filtroRuta"
+            @click="filtrarPorINNOVA"
+            :disabled="cantidadINNOVA === 0"
+            :class="[
+              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
+              cantidadINNOVA > 0
+                ? 'bg-violet-50 text-violet-800 hover:bg-violet-100'
+                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
+            ]"
+          >
+            INNOVA · {{ cantidadINNOVA }}
+          </button>
+          <button
+            v-if="hayDatos && !filtroRuta"
+            @click="filtrarPorMOSCA"
+            :disabled="cantidadMOSCA === 0"
+            :class="[
+              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
+              cantidadMOSCA > 0
+                ? 'bg-teal-50 text-teal-800 hover:bg-teal-100'
+                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
+            ]"
+          >
+            MOSCA · {{ cantidadMOSCA }}
+          </button>
 
-          <!-- ENCABEZADOS -->
+          <Button
+            v-if="filtroRuta === 'DHL001'"
+            variant="success"
+            :disabled="filasParaPDF.length === 0"
+            @click="generarPDF"
+            :title="filasParaPDF.length === 0 ? `No hay datos DHL001 con fecha ${store.fecha}` : 'Descargar PDF DHL001'"
+          >
+            <FileDown class="w-4 h-4" />
+            PDF · {{ filasParaPDF.length }}
+          </Button>
+          <Button
+            v-if="filtroRuta === 'INNOVA'"
+            variant="success"
+            :disabled="filasParaPDFInnnova.length === 0"
+            @click="generarPDFInnnova"
+          >
+            <FileDown class="w-4 h-4" />
+            PDF · {{ filasParaPDFInnnova.length }}
+          </Button>
+          <Button
+            v-if="filtroRuta === 'MOSCA'"
+            variant="success"
+            :disabled="filasParaPDFMosca.length === 0"
+            @click="generarPDFMosca"
+          >
+            <FileDown class="w-4 h-4" />
+            PDF · {{ filasParaPDFMosca.length }}
+          </Button>
+          <Button v-if="filtroRuta" variant="ghost" @click="limpiarFiltro">
+            Mostrar todo
+          </Button>
+
+          <Button v-if="hayDatos && cantidadDHL > 0" :disabled="store.loading" @click="guardarOrden('DHL001')">
+            <Save class="w-4 h-4" />
+            Guardar DHL
+          </Button>
+          <Button v-if="hayDatos && cantidadINNOVA > 0" :disabled="store.loading" @click="guardarOrden('INNOVA')">
+            <Save class="w-4 h-4" />
+            Guardar INNOVA
+          </Button>
+          <Button v-if="hayDatos && cantidadMOSCA > 0" :disabled="store.loading" @click="guardarOrden('MOSCA')">
+            <Save class="w-4 h-4" />
+            Guardar MOSCA
+          </Button>
+
+          <Button v-if="hayDatos" variant="secondary" @click="limpiar">
+            <RefreshCw class="w-4 h-4" />
+            Nueva carga
+          </Button>
+        </div>
+      </template>
+    </PageHeader>
+
+    <Card flush @paste="handlePaste">
+      <div class="max-h-[calc(100vh-300px)] overflow-y-auto">
+        <table class="w-full text-sm border-collapse table-fixed">
           <thead>
-            <tr>
-              <th class="sticky left-0 z-10 bg-gradient-to-r from-slate-900 to-slate-800 text-slate-200 font-bold uppercase tracking-wider px-3 py-3.5 text-center w-10 border-r border-slate-700">
-                #
-              </th>
+            <tr class="bg-slate-50 border-b border-slate-200">
+              <th class="sticky left-0 z-10 bg-slate-50 px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600 w-10 border-r border-slate-100">#</th>
               <th
                 v-for="col in COLUMNAS"
                 :key="col.key"
-                :class="['bg-gradient-to-r from-slate-900 to-slate-800 text-slate-200 font-bold uppercase tracking-wider px-4 py-3.5 text-left whitespace-nowrap border-r border-slate-700 last:border-r-0', col.width]"
+                :class="['px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap', col.width]"
               >
                 {{ col.label }}
               </th>
             </tr>
           </thead>
 
-          <!-- CUERPO -->
           <tbody>
-
-            <!-- ESTADO VACÍO -->
             <template v-if="!hayDatos">
-              <tr v-for="n in 8" :key="n" :class="n % 2 === 0 ? 'bg-slate-50' : 'bg-white'">
-                <td class="sticky left-0 z-10 px-3 py-3 text-center text-slate-200 font-mono font-bold border-r border-slate-100"
-                    :class="n % 2 === 0 ? 'bg-slate-50' : 'bg-white'">
-                  {{ n }}
-                </td>
-                <td v-for="col in COLUMNAS" :key="col.key"
-                    class="px-4 py-3 border-r border-slate-100 last:border-r-0">
-                  <div class="h-3 rounded bg-slate-200/50" :style="{ width: n % 3 === 0 ? '60%' : n % 2 === 0 ? '80%' : '40%' }" />
+              <tr v-for="n in 8" :key="n" :class="n % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'">
+                <td class="sticky left-0 z-10 px-3 py-2.5 text-center text-slate-200 font-mono font-semibold border-r border-slate-100" :class="n % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'">{{ n }}</td>
+                <td v-for="col in COLUMNAS" :key="col.key" class="px-3 py-2.5">
+                  <div class="h-3 rounded bg-slate-200/40" :style="{ width: n % 3 === 0 ? '60%' : n % 2 === 0 ? '80%' : '40%' }" />
                 </td>
               </tr>
 
-              <!-- Overlay mensaje vacío -->
               <tr>
                 <td :colspan="COLUMNAS.length + 1" class="py-0">
-                  <div class="flex flex-col items-center justify-center py-20 -mt-[calc(8*2.75rem)]">
-                    <div class="bg-blue-100/30 p-4 rounded-full mb-4">
-                      <Truck class="w-12 h-12 text-blue-600 animate-pulse-slow" />
-                    </div>
-                    <p class="font-bold text-slate-600 uppercase tracking-widest text-base">Sin datos cargados</p>
-                    <p class="text-slate-500 text-sm mt-2 font-medium">Haz clic aquí y pega tus datos desde SAP (Ctrl+V)</p>
-                    <p class="text-slate-400 text-xs mt-1">Solo las filas de datos, sin encabezados</p>
-                    <div v-if="error" class="mt-4 flex items-center gap-2 text-red-600 text-sm font-semibold bg-red-50 px-4 py-2.5 rounded-lg max-w-md border border-red-200">
+                  <div class="flex flex-col items-center justify-center py-16 -mt-[calc(8*2.75rem)]">
+                    <Truck class="w-10 h-10 text-slate-300 mb-3" />
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sin datos cargados</p>
+                    <p class="text-sm font-medium text-slate-500 mt-1">Haz clic aquí y pega tus datos desde SAP (Ctrl+V)</p>
+                    <p class="text-xs font-medium text-slate-400 mt-1">Solo las filas de datos, sin encabezados</p>
+                    <div v-if="error" class="mt-4 inline-flex items-center gap-2 text-sm font-medium text-red-700 bg-red-50 px-4 py-2.5 rounded-lg max-w-md border border-red-200">
                       <AlertCircle class="w-4 h-4 shrink-0" />
                       <span>{{ error }}</span>
                     </div>
@@ -788,30 +757,37 @@ async function generarPDFMosca() {
               </tr>
             </template>
 
-            <!-- FILAS CON DATOS -->
             <template v-else>
               <tr
                 v-for="(fila, idx) in filasVisibles"
                 :key="idx"
                 :class="[
-                  'border-t border-slate-100 transition-colors duration-150',
-                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/80 hover:bg-amber-100/60' : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/80 hover:bg-teal-100/60' : (idx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/60 hover:bg-blue-50/40')
+                  'border-t border-slate-100 transition-colors',
+                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/60 hover:bg-amber-100/50'
+                  : filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta) ? 'bg-violet-50/60 hover:bg-violet-100/50'
+                  : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/60 hover:bg-teal-100/50'
+                  : (idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-50/40 hover:bg-slate-50/80')
                 ]"
               >
-                <td :class="['sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100',
-                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/80' : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/80' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60')]">
+                <td :class="[
+                  'sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100',
+                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/60'
+                  : filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta) ? 'bg-violet-50/60'
+                  : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/60'
+                  : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40')
+                ]">
                   {{ filas.indexOf(fila) + 1 }}
                 </td>
                 <td
                   v-for="col in COLUMNAS"
                   :key="col.key"
-                  class="px-4 py-2.5 border-r border-slate-100 last:border-r-0 transition-colors duration-150"
+                  class="px-3 py-2.5 transition-colors"
                   :class="{
                     'break-words': col.key === 'nombreDestino' || col.key === 'denominacion',
-                    'bg-blue-50 border-l-2 border-l-blue-400': col.key === 'huecos' && filtroRuta === 'DHL001',
-                    'bg-violet-50 border-l-2 border-l-violet-400': col.key === 'huecos' && filtroRuta === 'INNOVA',
-                    'bg-teal-50 border-l-2 border-l-teal-400': col.key === 'huecos' && filtroRuta === 'MOSCA',
-                    'bg-slate-50 border-l-2 border-l-slate-300': col.key === 'huecos' && !filtroRuta,
+                    'bg-amber-50/80 border-l-2 border-l-amber-400': col.key === 'huecos' && filtroRuta === 'DHL001',
+                    'bg-violet-50/80 border-l-2 border-l-violet-400': col.key === 'huecos' && filtroRuta === 'INNOVA',
+                    'bg-teal-50/80 border-l-2 border-l-teal-400': col.key === 'huecos' && filtroRuta === 'MOSCA',
+                    'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos' && !filtroRuta,
                   }"
                 >
                   <template v-if="col.editable && col.key === 'huecos'">
@@ -820,25 +796,19 @@ async function generarPDFMosca() {
                       type="text"
                       data-huecos-input
                       @keydown.enter="handleHuecosKeydown($event, idx)"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-center font-bold text-sm transition-all bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                      :class="{
-                        'focus:ring-blue-400': filtroRuta === 'DHL001',
-                        'focus:ring-violet-400': filtroRuta === 'INNOVA',
-                        'focus:ring-teal-400': filtroRuta === 'MOSCA',
-                        'focus:ring-slate-300': !filtroRuta,
-                      }"
+                      class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
                     />
                   </template>
                   <template v-else>
                     <span :class="{
                       'font-bold text-slate-900 text-sm': col.key === 'nombreDestino',
-                      'text-blue-700 font-bold text-right block': col.key === 'cantidadPedido',
-                      'text-amber-700 font-bold': col.key === 'ruta' && filtroRuta === 'DHL001' && fila.ruta === 'DHL001',
-                      'text-violet-700 font-bold': col.key === 'ruta' && filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta),
-                      'text-teal-700 font-bold': col.key === 'ruta' && filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta),
-                      'text-slate-500 text-xs': col.key === 'salidaMercancias' || col.key === 'motivoPedido',
-                      'text-slate-700 text-xs': col.key !== 'nombreDestino' && col.key !== 'cantidadPedido' && col.key !== 'salidaMercancias' && col.key !== 'motivoPedido' && col.key !== 'ruta',
+                      'text-brand-700 font-bold text-right block': col.key === 'cantidadPedido',
+                      'text-amber-800 font-bold': col.key === 'ruta' && filtroRuta === 'DHL001' && fila.ruta === 'DHL001',
+                      'text-violet-800 font-bold': col.key === 'ruta' && filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta),
+                      'text-teal-800 font-bold': col.key === 'ruta' && filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta),
+                      'text-slate-500 text-xs font-medium': col.key === 'salidaMercancias' || col.key === 'motivoPedido',
+                      'text-slate-700 text-xs font-medium': col.key !== 'nombreDestino' && col.key !== 'cantidadPedido' && col.key !== 'salidaMercancias' && col.key !== 'motivoPedido' && col.key !== 'ruta',
                     }">
                       {{ fila[col.key] || '—' }}
                     </span>
@@ -846,37 +816,44 @@ async function generarPDFMosca() {
                 </td>
               </tr>
 
-              <!-- FILA TOTALES -->
-              <tr class="border-t-2 border-slate-300 bg-gradient-to-r from-slate-900 to-blue-900 text-white">
-                <td class="sticky left-0 z-10 bg-gradient-to-r from-slate-900 to-blue-900 px-3 py-4 text-center">
-                  <span class="text-slate-400 text-xs font-bold uppercase">Σ</span>
+              <tr class="border-t-2 border-slate-200 bg-slate-900 text-white">
+                <td class="sticky left-0 z-10 bg-slate-900 px-3 py-3 text-center">
+                  <span class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Σ</span>
                 </td>
-                <td v-for="col in COLUMNAS" :key="col.key" class="px-4 py-4 border-r border-slate-700 last:border-r-0">
-                  <span v-if="col.key === 'nombreDestino'" class="text-xs font-bold text-slate-300 uppercase tracking-widest">
+                <td v-for="col in COLUMNAS" :key="col.key" class="px-3 py-3">
+                  <span v-if="col.key === 'nombreDestino'" class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
                     {{ filasVisibles.length }} posiciones
                   </span>
-                  <span v-else-if="col.key === 'cantidadPedido'" class="block text-right font-bold text-blue-300 text-lg">
+                  <span v-else-if="col.key === 'cantidadPedido'" class="block text-right font-bold text-blue-300 text-base">
                     {{ totalCantidad.toLocaleString('es-ES') }}
                   </span>
                 </td>
               </tr>
 
-              <!-- Error -->
               <tr v-if="error">
                 <td :colspan="COLUMNAS.length + 1" class="px-4 py-3 bg-red-50 border-t border-red-200">
-                  <div class="flex items-center gap-2 text-red-600 text-sm font-semibold">
+                  <div class="flex items-center gap-2 text-red-700 text-sm font-medium">
                     <AlertCircle class="w-4 h-4 shrink-0" />
                     {{ error }}
                   </div>
                 </td>
               </tr>
             </template>
-
           </tbody>
-
         </table>
       </div>
-    </div>
-
+    </Card>
   </div>
 </template>
+
+<style scoped>
+.slide-in-enter-active,
+.slide-in-leave-active {
+  transition: all 0.25s ease;
+}
+.slide-in-enter-from,
+.slide-in-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+</style>

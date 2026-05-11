@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
-import { FileSpreadsheet, RefreshCw, AlertCircle, CheckCircle, XCircle } from 'lucide-vue-next'
+import { FileSpreadsheet, RefreshCw, AlertCircle, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import Card from './ui/Card.vue'
+import Button from './ui/Button.vue'
 
 const COLUMNAS = [
   { key: 'fecha_manip',          label: 'Fecha manip',           db: 'fecha_manip' },
@@ -68,7 +70,7 @@ function handlePaste(event) {
   const lineas = texto.trim().split(/[\r\n]+/).filter(l => l.trim())
 
   if (lineas.length === 0) {
-    showToast('❌ No hay datos para pegar', 'error')
+    showToast('No hay datos para pegar', 'error')
     return
   }
 
@@ -104,13 +106,13 @@ function handlePaste(event) {
   }
 
   if (filasParseadas.length === 0) {
-    showToast('❌ No se encontraron filas válidas', 'error')
+    showToast('No se encontraron filas válidas', 'error')
     return
   }
 
   filas.value = filasParseadas
   hayDatosGuardados.value = true
-  showToast(`✅ ${filasParseadas.length} filas pegadas`, 'success')
+  showToast(`${filasParseadas.length} filas pegadas`, 'success')
 }
 
 async function cargarFechasDisponibles() {
@@ -204,112 +206,99 @@ onActivated(cargarDatos)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- TOAST -->
+  <div class="space-y-5">
     <transition name="slide-in">
       <div
         v-if="toast"
         :class="[
-          'fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg border z-50',
+          'fixed top-6 right-6 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg border z-50',
           toastType === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-red-50 border-red-200 text-red-900'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-red-50 border-red-200 text-red-800'
         ]"
       >
-        <component :is="toastType === 'success' ? CheckCircle : XCircle" class="w-5 h-5" />
+        <component :is="toastType === 'success' ? CheckCircle2 : XCircle" class="w-4 h-4 shrink-0" />
         <span class="font-medium text-sm">{{ toast }}</span>
       </div>
     </transition>
 
-    <!-- HEADER -->
     <div class="flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <div class="bg-gradient-to-br from-purple-600 to-fuchsia-700 p-2.5 rounded-xl">
-          <FileSpreadsheet class="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h3 class="font-bold text-slate-900 text-base">Producción del día</h3>
-          <p class="text-xs text-slate-500">
-            {{ hayDatos ? `${filas.length} filas cargadas` : 'Haz clic en la tabla y pega los datos (Ctrl+V)' }}
-            · Se conservan 10 días
-          </p>
-        </div>
+      <div class="text-sm font-medium text-slate-500">
+        {{ hayDatos ? `${filas.length} filas cargadas` : 'Haz clic en la tabla y pega los datos (Ctrl+V)' }}
+        · Se conservan 10 días
       </div>
 
       <div class="flex items-center gap-3 flex-wrap">
-        <!-- NAVEGACIÓN FECHA -->
-        <div class="flex items-center gap-1 border border-slate-300 rounded-lg px-3 py-1.5 bg-white">
-          <button @click="prevDia" class="px-1 text-slate-500 hover:text-slate-800 font-bold">◀</button>
+        <div class="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-sm">
+          <button @click="prevDia" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <ChevronLeft class="w-4 h-4" />
+          </button>
           <input
             type="date"
             v-model="fecha"
-            class="text-sm border-none outline-none focus:ring-0 bg-transparent"
+            class="text-sm font-semibold text-slate-900 border-none outline-none focus:ring-0 bg-transparent"
           />
-          <button @click="nextDia" class="px-1 text-slate-500 hover:text-slate-800 font-bold">▶</button>
-          <span class="ml-2 text-xs font-semibold text-slate-700 capitalize">{{ diaSemana }}</span>
+          <button @click="nextDia" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <ChevronRight class="w-4 h-4" />
+          </button>
+          <span class="ml-1 text-xs font-semibold text-slate-700 capitalize px-2 py-0.5 rounded bg-slate-100">{{ diaSemana }}</span>
           <button
             v-if="!esHoy"
             @click="irAHoy"
-            class="ml-2 text-xs font-semibold text-purple-600 hover:text-purple-800"
+            class="ml-1 text-xs font-semibold text-brand-600 hover:text-brand-700 px-2"
           >
             Hoy
           </button>
         </div>
 
-        <span class="text-xs italic">
-          <span v-if="saveStatus === 'saving'" class="text-slate-500">Guardando…</span>
-          <span v-else-if="saveStatus === 'saved'" class="text-green-600">Guardado ✓</span>
-          <span v-else-if="saveStatus === 'error'" class="text-red-500">Error al guardar</span>
+        <span class="text-xs font-medium italic">
+          <span v-if="saveStatus === 'saving'" class="text-slate-400">Guardando…</span>
+          <span v-else-if="saveStatus === 'saved'" class="text-emerald-600 inline-flex items-center gap-1 not-italic">
+            <CheckCircle2 class="w-3.5 h-3.5" />
+            Guardado
+          </span>
+          <span v-else-if="saveStatus === 'error'" class="text-red-600 not-italic">Error al guardar</span>
         </span>
-        <button
-          v-if="hayDatos"
-          @click="limpiar"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
+
+        <Button v-if="hayDatos" variant="secondary" @click="limpiar">
           <RefreshCw class="w-4 h-4" />
           Limpiar
-        </button>
+        </Button>
       </div>
     </div>
 
-    <!-- DÍAS CON DATOS -->
     <div v-if="fechasDisponibles.length > 0" class="flex items-center gap-2 flex-wrap text-xs">
-      <span class="text-slate-500 font-semibold">Días con datos:</span>
+      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Días con datos:</span>
       <button
         v-for="f in fechasDisponibles"
         :key="f"
         @click="fecha = f"
         :class="[
-          'px-2.5 py-1 rounded-full font-semibold border transition-all',
+          'px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors',
           fecha === f
-            ? 'bg-purple-600 text-white border-purple-600'
-            : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:text-purple-700'
+            ? 'bg-brand-600 text-white border-brand-600'
+            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
         ]"
       >
         {{ new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) }}
       </button>
     </div>
 
-    <!-- ERROR -->
-    <div v-if="errorMsg" class="flex items-center gap-2 text-red-600 text-sm font-semibold bg-red-50 px-4 py-3 rounded-lg border border-red-200">
+    <div v-if="errorMsg" class="flex items-center gap-2 text-sm font-medium text-red-700 bg-red-50 px-4 py-3 rounded-lg border border-red-200">
       <AlertCircle class="w-4 h-4 shrink-0" />
       <span>{{ errorMsg }}</span>
     </div>
 
-    <!-- TABLA -->
-    <div
-      class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-md"
-      @paste="handlePaste"
-    >
+    <Card flush @paste="handlePaste">
       <div class="overflow-x-auto max-h-[600px]">
         <table class="w-full text-sm border-collapse">
           <thead>
-            <tr>
-              <th class="sticky left-0 z-10 bg-slate-200 text-black font-bold uppercase tracking-wide px-3 py-3 text-center w-10 border-r border-slate-400">#</th>
+            <tr class="bg-slate-50 border-b border-slate-200">
+              <th class="sticky left-0 z-10 bg-slate-50 px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600 w-10 border-r border-slate-100">#</th>
               <th
                 v-for="col in COLUMNAS"
                 :key="col.key"
-                class="bg-slate-200 text-black font-bold uppercase tracking-wide px-3 py-3 text-left whitespace-nowrap border-r border-slate-400 last:border-r-0 text-xs"
+                class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
               >
                 {{ col.label }}
               </th>
@@ -317,18 +306,18 @@ onActivated(cargarDatos)
           </thead>
           <tbody>
             <template v-if="!hayDatos">
-              <tr v-for="n in 6" :key="n" :class="n % 2 === 0 ? 'bg-slate-50' : 'bg-white'">
-                <td class="sticky left-0 px-3 py-3 text-center text-slate-200 font-mono font-bold border-r border-slate-100" :class="n % 2 === 0 ? 'bg-slate-50' : 'bg-white'">{{ n }}</td>
-                <td v-for="col in COLUMNAS" :key="col.key" class="px-3 py-3 border-r border-slate-100 last:border-r-0">
-                  <div class="h-3 rounded bg-slate-200/50" :style="{ width: n % 3 === 0 ? '60%' : n % 2 === 0 ? '80%' : '40%' }" />
+              <tr v-for="n in 6" :key="n" :class="n % 2 === 0 ? 'bg-slate-50/60' : 'bg-white'">
+                <td class="sticky left-0 px-3 py-2.5 text-center text-slate-200 font-mono font-semibold border-r border-slate-100" :class="n % 2 === 0 ? 'bg-slate-50/60' : 'bg-white'">{{ n }}</td>
+                <td v-for="col in COLUMNAS" :key="col.key" class="px-3 py-2.5">
+                  <div class="h-3 rounded bg-slate-200/40" :style="{ width: n % 3 === 0 ? '60%' : n % 2 === 0 ? '80%' : '40%' }" />
                 </td>
               </tr>
               <tr>
                 <td :colspan="COLUMNAS.length + 1" class="py-0">
-                  <div class="flex flex-col items-center justify-center py-16 -mt-[calc(6*2.75rem)]">
-                    <FileSpreadsheet class="w-12 h-12 text-purple-300 mb-3" />
-                    <p class="font-bold text-slate-600 uppercase tracking-widest text-sm">Sin datos</p>
-                    <p class="text-slate-500 text-sm mt-2 font-medium">Haz clic aquí y pega tus datos (Ctrl+V)</p>
+                  <div class="flex flex-col items-center justify-center py-12 -mt-[calc(6*2.75rem)]">
+                    <FileSpreadsheet class="w-10 h-10 text-slate-300 mb-3" />
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sin datos</p>
+                    <p class="text-sm font-medium text-slate-500 mt-1">Haz clic aquí y pega tus datos (Ctrl+V)</p>
                   </div>
                 </td>
               </tr>
@@ -337,20 +326,20 @@ onActivated(cargarDatos)
               <tr
                 v-for="(fila, idx) in filas"
                 :key="idx"
-                :class="['border-t border-slate-100', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60', 'hover:bg-purple-50/40']"
+                :class="['border-t border-slate-100', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40', 'hover:bg-slate-50/80 transition-colors']"
               >
-                <td :class="['sticky left-0 px-3 py-2 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60']">
+                <td :class="['sticky left-0 px-3 py-2 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40']">
                   {{ idx + 1 }}
                 </td>
                 <td
                   v-for="col in COLUMNAS"
                   :key="col.key"
-                  class="border-r border-slate-100 last:border-r-0 p-0"
+                  class="p-0"
                 >
                   <input
                     v-model="fila[col.key]"
                     type="text"
-                    class="w-full px-3 py-2 text-xs text-slate-700 bg-transparent outline-none focus:bg-purple-50 focus:ring-1 focus:ring-purple-300 transition-colors"
+                    class="w-full px-3 py-2 text-xs text-slate-700 bg-transparent outline-none focus:bg-amber-50 transition-colors"
                   />
                 </td>
               </tr>
@@ -358,6 +347,18 @@ onActivated(cargarDatos)
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   </div>
 </template>
+
+<style scoped>
+.slide-in-enter-active,
+.slide-in-leave-active {
+  transition: all 0.25s ease;
+}
+.slide-in-enter-from,
+.slide-in-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+</style>

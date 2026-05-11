@@ -13,19 +13,20 @@
     "design:watch": "loop 12h node scripts/design-improvement-agent.mjs"
   },
   "dependencies": {
-    "vue": "^3.5.24",
-    "pinia": "^2.2.6",
-    "lucide-vue-next": "^0.365.0",
+    "@emailjs/browser": "^4.4.1",
     "@supabase/supabase-js": "^2.48.0",
     "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.3"
+    "jspdf-autotable": "^3.8.3",
+    "lucide-vue-next": "^0.365.0",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.24"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@vitejs/plugin-vue": "^6.0.1",
-    "vite": "^7.2.4",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8.4.35",
     "autoprefixer": "^10.4.17",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0"
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^7.2.4"
   }
 }

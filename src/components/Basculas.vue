@@ -1,7 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
-import { Scale, CheckCircle, XCircle, AlertTriangle, Save, Trash2 } from 'lucide-vue-next'
+import { Scale, CheckCircle2, XCircle, AlertTriangle, Trash2 } from 'lucide-vue-next'
+import Card from './ui/Card.vue'
+import Button from './ui/Button.vue'
+import Badge from './ui/Badge.vue'
+import PageHeader from './ui/PageHeader.vue'
 
 const PESO_REFERENCIA = 528
 const TOLERANCIA = 1.5
@@ -120,135 +124,125 @@ async function eliminarRegistro(id) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- HEADER -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="bg-gradient-to-br from-cyan-600 to-teal-700 p-3 rounded-xl">
-          <Scale class="w-6 h-6 text-white" />
+  <div class="space-y-8">
+    <PageHeader
+      caption="Calidad"
+      :caption-icon="Scale"
+      theme="cyan"
+      title="Control de Básculas"
+      subtitle="Verificación semanal de calibración"
+    >
+      <template #actions>
+        <div class="text-right">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Semana actual</p>
+          <p class="text-2xl font-bold tracking-tight text-slate-900">{{ semanaActual }}<span class="text-base font-medium text-slate-400"> / {{ anioActual }}</span></p>
         </div>
-        <div>
-          <h2 class="font-900 text-slate-900 text-lg">Control de Básculas</h2>
-          <p class="text-sm text-slate-500 font-medium">Verificación semanal de calibración</p>
-        </div>
-      </div>
-      <div class="inline-flex items-center px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-50 to-teal-50 border border-cyan-200">
-        <span class="text-sm font-bold text-cyan-800">Semana {{ semanaActual }} / {{ anioActual }}</span>
-      </div>
+      </template>
+    </PageHeader>
+
+    <div v-if="errorMsg" class="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
+      <AlertTriangle class="w-4 h-4 shrink-0" />
+      <span>{{ errorMsg }}</span>
+    </div>
+    <div v-if="successMsg" class="text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-2">
+      <CheckCircle2 class="w-4 h-4 shrink-0" />
+      <span>{{ successMsg }}</span>
     </div>
 
-    <div class="flex gap-6 items-start">
-
-      <!-- FORMULARIO -->
-      <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-8 w-1/2">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <Card padding="lg">
         <div class="space-y-6">
-
-          <div class="text-center">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Peso de referencia</p>
-            <p class="text-4xl font-black text-slate-900">{{ PESO_REFERENCIA }} <span class="text-lg font-semibold text-slate-400">kg</span></p>
-            <p class="text-xs text-slate-400 mt-1">Tolerancia: ± {{ TOLERANCIA }} kg</p>
+          <div class="text-center pb-6 border-b border-slate-100">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Peso de referencia</p>
+            <p class="text-4xl font-bold tracking-tight text-slate-900">{{ PESO_REFERENCIA }} <span class="text-lg font-medium text-slate-400">kg</span></p>
+            <p class="text-xs font-medium text-slate-400 mt-1">Tolerancia: ± {{ TOLERANCIA }} kg</p>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Báscula
-            </label>
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Báscula</label>
             <select
               v-model="basculaSeleccionada"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all appearance-none cursor-pointer"
+              class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 cursor-pointer focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
             >
               <option v-for="b in BASCULAS" :key="b" :value="b">{{ b }}</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Peso registrado en báscula
-            </label>
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Peso registrado en báscula</label>
             <div class="relative">
               <input
                 v-model="pesoRegistrado"
                 type="number"
                 step="0.01"
                 placeholder="Ej: 528.50"
-                class="w-full px-4 py-4 border border-slate-300 rounded-xl text-lg font-bold text-center text-slate-900 bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-lg font-bold text-center text-slate-900 placeholder:text-slate-300 placeholder:font-medium focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
               />
               <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">kg</span>
             </div>
           </div>
 
-          <!-- RESULTADO -->
-          <div v-if="pesoValido" class="rounded-xl p-5 text-center transition-all" :class="calibrada ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'">
-            <div class="flex items-center justify-center gap-2 mb-2">
-              <CheckCircle v-if="calibrada" class="w-6 h-6 text-emerald-600" />
-              <XCircle v-else class="w-6 h-6 text-red-600" />
-              <span class="text-lg font-black" :class="calibrada ? 'text-emerald-700' : 'text-red-700'">
-                {{ calibrada ? 'Báscula Correcta' : 'La Báscula está mal calibrada' }}
+          <div
+            v-if="pesoValido"
+            class="rounded-lg p-4 text-center"
+            :class="calibrada ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'"
+          >
+            <div class="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle2 v-if="calibrada" class="w-5 h-5 text-emerald-600" />
+              <XCircle v-else class="w-5 h-5 text-red-600" />
+              <span class="text-sm font-bold" :class="calibrada ? 'text-emerald-700' : 'text-red-700'">
+                {{ calibrada ? 'Báscula correcta' : 'Báscula mal calibrada' }}
               </span>
             </div>
-            <p class="text-sm font-semibold" :class="calibrada ? 'text-emerald-600' : 'text-red-600'">
+            <p class="text-xs font-semibold" :class="calibrada ? 'text-emerald-600' : 'text-red-600'">
               Desviación: {{ desviacion > 0 ? '+' : '' }}{{ desviacion }} kg
             </p>
           </div>
 
-          <!-- BOTÓN GUARDAR -->
-          <button
-            @click="guardarRegistro"
+          <Button
+            block
+            size="lg"
             :disabled="!pesoValido || guardando"
-            :class="['w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500',
-              pesoValido && !guardando
-                ? 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-lg shadow-cyan-500/20'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed']"
+            :loading="guardando"
+            @click="guardarRegistro"
           >
-            <Save class="w-4 h-4" />
             <span v-if="guardando">Guardando...</span>
-            <span v-else-if="registroExistente">Actualizar Semana {{ semanaActual }}</span>
-            <span v-else>Guardar Semana {{ semanaActual }}</span>
-          </button>
+            <span v-else-if="registroExistente">Actualizar semana {{ semanaActual }}</span>
+            <span v-else>Guardar semana {{ semanaActual }}</span>
+          </Button>
 
-          <!-- BOTÓN FRACTTAL -->
           <a
             v-if="registroExistente && !registroExistente.calibrada"
             href="https://one.fracttal.com/signin"
             target="_blank"
             rel="noopener noreferrer"
-            class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white bg-red-600 hover:bg-red-700 transition-colors"
           >
             <AlertTriangle class="w-4 h-4" />
             Abrir Fracttal (Crear orden de mantenimiento)
           </a>
-
-          <!-- MENSAJES -->
-          <div v-if="errorMsg" class="flex items-center gap-2 text-red-600 text-sm font-semibold bg-red-50 px-4 py-3 rounded-lg border border-red-200">
-            <AlertTriangle class="w-4 h-4 shrink-0" />
-            <span>{{ errorMsg }}</span>
-          </div>
-          <div v-if="successMsg" class="flex items-center gap-2 text-emerald-600 text-sm font-semibold bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200">
-            <CheckCircle class="w-4 h-4 shrink-0" />
-            <span>{{ successMsg }}</span>
-          </div>
         </div>
-      </div>
+      </Card>
 
-      <!-- HISTORIAL -->
-      <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-6 w-1/2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Historial {{ anioActual }}</h3>
+      <Card flush>
+        <div class="px-6 py-4 border-b border-slate-100">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Historial {{ anioActual }}</h3>
+        </div>
 
-        <div v-if="loadingHistorial" class="text-sm text-slate-400 py-4 text-center">Cargando historial...</div>
-
-        <div v-else-if="historial.length === 0" class="text-sm text-slate-400 py-8 text-center">
+        <div v-if="loadingHistorial" class="text-center py-12 text-sm font-medium text-slate-400">Cargando historial...</div>
+        <div v-else-if="historial.length === 0" class="text-center py-12 text-sm font-medium text-slate-400">
           No hay registros este año
         </div>
 
         <div v-else class="overflow-y-auto" style="max-height: calc(100vh - 280px)">
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-slate-200">
-                <th class="text-left py-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Sem.</th>
-                <th class="text-left py-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Báscula</th>
-                <th class="text-center py-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Peso</th>
-                <th class="text-center py-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Desv.</th>
-                <th class="text-center py-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+              <tr class="border-b border-slate-100">
+                <th class="text-left py-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sem.</th>
+                <th class="text-left py-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Báscula</th>
+                <th class="text-center py-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Peso</th>
+                <th class="text-center py-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Desv.</th>
+                <th class="text-center py-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</th>
                 <th class="py-2 px-2 w-10"></th>
               </tr>
             </thead>
@@ -256,32 +250,29 @@ async function eliminarRegistro(id) {
               <tr
                 v-for="reg in historial"
                 :key="reg.id"
-                class="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                :class="{ 'bg-cyan-50/50': reg.semana === semanaActual }"
+                class="border-b border-slate-50 hover:bg-slate-50/60 transition-colors"
+                :class="{ 'bg-cyan-50/40': reg.semana === semanaActual }"
               >
-                <td class="py-2.5 px-3 font-bold text-slate-700">
+                <td class="py-2.5 px-4 font-semibold text-slate-700">
                   S{{ reg.semana }}
-                  <span v-if="reg.semana === semanaActual" class="text-[10px] text-cyan-600 font-semibold ml-1">actual</span>
+                  <span v-if="reg.semana === semanaActual" class="text-[10px] text-cyan-600 font-bold ml-1">actual</span>
                 </td>
-                <td class="py-2.5 px-3 text-xs font-semibold text-slate-600">{{ reg.nombre_bascula }}</td>
-                <td class="py-2.5 px-3 text-center font-semibold text-slate-700">{{ reg.peso_registrado }} kg</td>
-                <td class="py-2.5 px-3 text-center font-semibold" :class="reg.calibrada ? 'text-emerald-600' : 'text-red-600'">
+                <td class="py-2.5 px-4 text-xs font-medium text-slate-600">{{ reg.nombre_bascula }}</td>
+                <td class="py-2.5 px-4 text-center font-semibold text-slate-700">{{ reg.peso_registrado }} kg</td>
+                <td class="py-2.5 px-4 text-center font-semibold" :class="reg.calibrada ? 'text-emerald-600' : 'text-red-600'">
                   {{ reg.desviacion > 0 ? '+' : '' }}{{ reg.desviacion }} kg
                 </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span
-                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                    :class="reg.calibrada ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
-                  >
-                    <CheckCircle v-if="reg.calibrada" class="w-3 h-3" />
+                <td class="py-2.5 px-4 text-center">
+                  <Badge :variant="reg.calibrada ? 'success' : 'danger'">
+                    <CheckCircle2 v-if="reg.calibrada" class="w-3 h-3" />
                     <XCircle v-else class="w-3 h-3" />
-                    {{ reg.calibrada ? 'OK' : 'Mal calibrada' }}
-                  </span>
+                    {{ reg.calibrada ? 'OK' : 'Mal' }}
+                  </Badge>
                 </td>
                 <td class="py-2.5 px-2 text-center">
                   <button
                     @click="eliminarRegistro(reg.id)"
-                    class="p-1.5 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    class="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
                     title="Eliminar registro"
                   >
                     <Trash2 class="w-4 h-4" />
@@ -291,8 +282,7 @@ async function eliminarRegistro(id) {
             </tbody>
           </table>
         </div>
-      </div>
-
+      </Card>
     </div>
   </div>
 </template>

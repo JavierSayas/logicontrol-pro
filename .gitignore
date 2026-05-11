@@ -18,6 +18,9 @@ dist-ssr
 .mcp.json
 .netlify/
 
+# Claude Code skills locales
+.claude/skills/
+
 # Scripts locales con credenciales
 check_*.mjs
 check_*.js

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabaseOrigen } from '../lib/supabase'
-import { Building2 } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, MousePointer, X } from 'lucide-vue-next'
 
 const TIPO = 'operaciones'
 const tipoOtro = 'comercial'
@@ -346,76 +346,63 @@ const scrollToHoy = async () => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- HEADER PRINCIPAL -->
-    <div class="flex items-center gap-4">
-      <div class="bg-gradient-to-br from-blue-600 to-cyan-700 p-3 rounded-xl">
-        <Building2 class="w-6 h-6 text-white" />
-      </div>
-      <div>
-        <h2 class="font-900 text-slate-900 text-lg">Lidl</h2>
-        <p class="text-sm text-slate-500 font-medium">Operaciones — vista en tiempo real (solo lectura)</p>
-      </div>
-    </div>
-
-    <!-- Cabecera secundaria -->
+  <div class="flex flex-col gap-3 overflow-hidden" style="height: calc(100vh - 280px)">
     <div class="flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="flex items-center gap-1">
-          <button @click="windowOffset -= 30"
-            class="px-2 py-0.5 rounded text-xs text-slate-500 hover:bg-slate-100 border border-slate-200 leading-none">←</button>
-          <span class="text-xs text-slate-400"><span class="font-medium text-slate-600">{{ fechaInicio }}</span> → <span class="font-medium text-slate-600">{{ fechaFin }}</span></span>
-          <button @click="windowOffset += 30"
-            class="px-2 py-0.5 rounded text-xs text-slate-500 hover:bg-slate-100 border border-slate-200 leading-none">→</button>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-1 shadow-sm">
+          <button @click="windowOffset -= 30" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <ChevronLeft class="w-3.5 h-3.5" />
+          </button>
+          <span class="text-[11px] font-medium text-slate-500 px-1">
+            <span class="text-slate-700 font-semibold">{{ fechaInicio }}</span>
+            <span class="text-slate-300 mx-1">→</span>
+            <span class="text-slate-700 font-semibold">{{ fechaFin }}</span>
+          </span>
+          <button @click="windowOffset += 30" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <ChevronRight class="w-3.5 h-3.5" />
+          </button>
           <button v-if="windowOffset !== 0" @click="windowOffset = 0"
-            class="px-2 py-0.5 rounded text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 leading-none">Hoy</button>
+            class="text-xs font-semibold text-brand-600 hover:text-brand-700 px-2">Hoy</button>
         </div>
-        <span class="text-xs font-medium ml-1 text-blue-600">· Vista Operaciones</span>
-        <span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
           Solo lectura
         </span>
-        <div class="flex items-center gap-2 ml-4 text-[10px] text-slate-500">
-          <span class="flex items-center gap-1"><span class="w-2 h-4 rounded-sm bg-green-500 inline-block"></span>Coincide</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-4 rounded-sm bg-yellow-400 inline-block"></span>Solo uno</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-4 rounded-sm bg-red-500 inline-block"></span>Difiere</span>
+        <div class="flex items-center gap-3 text-[11px] font-medium text-slate-500">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-3.5 rounded-sm bg-emerald-500 inline-block"></span>Coincide</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-3.5 rounded-sm bg-amber-400 inline-block"></span>Solo uno</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-3.5 rounded-sm bg-red-500 inline-block"></span>Difiere</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <!-- Botón selección suma + indicador -->
-        <div class="flex items-center gap-2">
-          <div class="flex items-center gap-2 px-3 py-1 rounded-lg text-xs min-w-[180px] h-7"
-            :class="sumaSel !== null ? 'bg-emerald-50 border border-emerald-200' : ''">
-            <template v-if="sumaSel !== null">
-              <span class="text-emerald-600 whitespace-nowrap">{{ celdasSel }} celdas</span>
-              <span class="text-emerald-400">·</span>
-              <span class="font-bold text-emerald-800 text-sm tabular-nums whitespace-nowrap">Σ {{ sumaSel.toLocaleString('es-ES') }}</span>
-              <button @mousedown.stop.prevent="limpiarSeleccion" class="ml-auto text-emerald-400 hover:text-emerald-700" title="Limpiar">✕</button>
-            </template>
-          </div>
-          <button
-            @mousedown.stop.prevent="toggleModoSeleccion"
-            class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap"
-            :class="modoSeleccion
-              ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
-              : 'bg-white text-slate-600 border-slate-300 hover:border-emerald-400 hover:text-emerald-700'"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7H7a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-2M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M9 7h6"/>
-            </svg>
-            {{ modoSeleccion ? 'Cancelar' : 'Sumar' }}
+      <div class="flex items-center gap-2">
+        <div v-if="sumaSel !== null"
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs h-7 bg-emerald-50 border border-emerald-200">
+          <span class="text-emerald-700 whitespace-nowrap font-medium">{{ celdasSel }} celdas</span>
+          <span class="text-emerald-300">·</span>
+          <span class="font-bold text-emerald-800 text-sm tabular-nums whitespace-nowrap">Σ {{ sumaSel.toLocaleString('es-ES') }}</span>
+          <button @mousedown.stop.prevent="limpiarSeleccion" class="text-emerald-400 hover:text-emerald-700" title="Limpiar">
+            <X class="w-3 h-3" />
           </button>
         </div>
+        <button
+          @mousedown.stop.prevent="toggleModoSeleccion"
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap"
+          :class="modoSeleccion
+            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'"
+        >
+          <MousePointer class="w-3.5 h-3.5" />
+          {{ modoSeleccion ? 'Cancelar' : 'Sumar' }}
+        </button>
 
-        <!-- Sumas por color (informativas) -->
-        <div class="flex items-center gap-1.5">
-          <span v-if="sumaPorColor.yellow > 0" class="h-6 w-14 rounded-md bg-yellow-300 flex items-center justify-center" title="Suma celdas amarillas">
-            <span class="text-[10px] font-bold text-yellow-900 tabular-nums leading-none">
+        <div class="flex items-center gap-1">
+          <span v-if="sumaPorColor.yellow > 0" class="h-6 px-2 rounded-md bg-amber-100 text-amber-800 inline-flex items-center" title="Suma celdas amarillas">
+            <span class="text-[10px] font-bold tabular-nums leading-none">
               {{ sumaPorColor.yellow.toLocaleString('es-ES') }}
             </span>
           </span>
-          <span v-if="sumaPorColor.red > 0" class="h-6 w-14 rounded-md bg-red-300 flex items-center justify-center" title="Suma celdas rojas">
-            <span class="text-[10px] font-bold text-red-900 tabular-nums leading-none">
+          <span v-if="sumaPorColor.red > 0" class="h-6 px-2 rounded-md bg-red-100 text-red-800 inline-flex items-center" title="Suma celdas rojas">
+            <span class="text-[10px] font-bold tabular-nums leading-none">
               {{ sumaPorColor.red.toLocaleString('es-ES') }}
             </span>
           </span>
@@ -423,34 +410,31 @@ const scrollToHoy = async () => {
       </div>
     </div>
 
-    <!-- ERROR -->
-    <div v-if="errorMsg" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 font-medium">
+    <div v-if="errorMsg" class="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
       {{ errorMsg }}
     </div>
 
-    <!-- Cargando -->
-    <div v-if="loading" class="text-center py-12 text-slate-400 text-sm">Cargando…</div>
+    <div v-if="loading" class="text-center py-12 text-sm font-medium text-slate-400">Cargando…</div>
 
-    <!-- Tabla -->
-    <div v-else class="rounded-lg border border-slate-200 overflow-hidden">
-      <div ref="tableContainer" class="overflow-auto max-h-[68vh]">
+    <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex-1 min-h-0">
+      <div ref="tableContainer" class="overflow-auto h-full">
         <table class="text-xs border-collapse w-full">
           <thead class="sticky top-0 z-20">
-            <tr class="bg-blue-50">
-              <th class="px-3 py-2.5 font-semibold border-b border-slate-200 text-left sticky left-0 z-30 min-w-[110px] bg-blue-50 text-blue-800">
+            <tr>
+              <th class="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600 border-b border-slate-200 text-left sticky left-0 z-30 min-w-[110px] bg-slate-50">
                 Fecha
               </th>
               <th
                 v-for="(p, pi) in PLATAFORMAS" :key="p.key"
-                class="px-1 py-2.5 font-semibold border-b border-slate-200 whitespace-nowrap text-center min-w-[44px] transition-colors"
-                :class="hoveredCol === pi ? 'bg-blue-100 text-blue-900' : 'bg-blue-50 text-blue-700'"
+                class="px-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-200 whitespace-nowrap text-center min-w-[44px] transition-colors"
+                :class="hoveredCol === pi ? 'bg-slate-100 text-slate-900' : 'bg-slate-50 text-slate-600'"
               >
                 {{ p.label }}
               </th>
-              <th class="px-2 py-2.5 font-bold border-b border-l-2 border-slate-300 whitespace-nowrap text-center min-w-[80px] text-blue-800 bg-blue-50">
+              <th class="px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-l border-slate-200 whitespace-nowrap text-center min-w-[80px] text-slate-700 bg-slate-50">
                 Exp. hoy
               </th>
-              <th class="px-2 py-2.5 font-bold border-b border-l-2 border-slate-300 whitespace-nowrap text-center min-w-[52px] text-emerald-800 bg-emerald-50">
+              <th class="px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-l border-slate-200 whitespace-nowrap text-center min-w-[52px] text-emerald-700 bg-emerald-50/60">
                 Total
               </th>
             </tr>
@@ -465,13 +449,13 @@ const scrollToHoy = async () => {
               @mouseenter="hoveredRow = i"
               @mouseleave="hoveredRow = null; hoveredCol = null"
             >
-              <td class="px-3 py-1.5 sticky left-0 z-10 font-medium whitespace-nowrap border-r border-slate-100 transition-colors"
+              <td class="px-3 py-1.5 sticky left-0 z-10 font-medium text-xs whitespace-nowrap border-r border-slate-100 transition-colors"
                 :class="[
                   fechaBadge(fecha, i % 2 === 0),
-                  hoveredRow === i ? '!bg-blue-100 text-blue-900' : ''
+                  hoveredRow === i ? '!bg-slate-100 text-slate-900' : ''
                 ]">
                 {{ fmtFecha(fecha) }}
-                <span v-if="fecha === hoy" class="ml-1 text-[10px] bg-slate-800 text-white font-bold px-1.5 py-0.5 rounded">HOY</span>
+                <span v-if="fecha === hoy" class="ml-1 text-[10px] bg-slate-900 text-white font-bold px-1.5 py-0.5 rounded">HOY</span>
               </td>
 
               <td
@@ -490,7 +474,7 @@ const scrollToHoy = async () => {
               >
                 <div
                   v-if="enRangoSel(i, pi)"
-                  class="absolute inset-0 pointer-events-none bg-blue-500/30 ring-2 ring-inset ring-blue-600"
+                  class="absolute inset-0 pointer-events-none bg-emerald-500/25 ring-2 ring-inset ring-emerald-500"
                 />
                 <div
                   class="w-full text-center px-0.5 py-0.5 tabular-nums text-[11px] select-none"
@@ -499,17 +483,17 @@ const scrollToHoy = async () => {
                   {{ getVal(fecha, p.key) || '·' }}
                 </div>
               </td>
-              <td class="px-2 py-1.5 text-center tabular-nums border-l-2 border-slate-300 text-[11px]"
+              <td class="px-2 py-1.5 text-center tabular-nums border-l border-slate-200 text-[11px]"
                 :class="[
-                  i % 2 === 0 ? 'bg-blue-50/40' : 'bg-blue-50/20',
-                  calcExpediciones(fecha) ? 'font-bold text-blue-900' : 'text-slate-300'
+                  i % 2 === 0 ? 'bg-slate-50/40' : 'bg-slate-50/20',
+                  calcExpediciones(fecha) ? 'font-bold text-slate-800' : 'text-slate-300'
                 ]"
               >
                 {{ calcExpediciones(fecha) }}
               </td>
               <td
-                class="px-2 py-1.5 text-center tabular-nums font-bold border-l-2 border-slate-300 text-emerald-800 text-xs"
-                :class="i % 2 === 0 ? 'bg-emerald-50/60' : 'bg-emerald-50/40'"
+                class="px-2 py-1.5 text-center tabular-nums font-bold border-l border-slate-200 text-emerald-700 text-xs"
+                :class="i % 2 === 0 ? 'bg-emerald-50/60' : 'bg-emerald-50/30'"
               >
                 {{ totalFila(fecha) > 0 ? totalFila(fecha) : '' }}
               </td>

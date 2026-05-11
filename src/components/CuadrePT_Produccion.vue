@@ -1,22 +1,25 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { supabaseOrigen } from '../lib/supabase'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import Card from './ui/Card.vue'
+import Badge from './ui/Badge.vue'
 
 const FILAS = [
   { cliente: 'Aldi',                  producto: 'Coco 150g',  rowClass: 'bg-white' },
   { cliente: 'Aldi',                  producto: 'Cilindro',   rowClass: 'bg-white' },
   { cliente: 'Lidl',                  producto: 'Cilindro',   rowClass: 'bg-orange-50' },
-  { cliente: 'El corte inglés',       producto: 'Cilindro',   rowClass: 'bg-green-50' },
-  { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  rowClass: 'bg-purple-50' },
+  { cliente: 'El corte inglés',       producto: 'Cilindro',   rowClass: 'bg-emerald-50' },
+  { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  rowClass: 'bg-violet-50' },
 ]
 
 const LINEAS = [
-  { linea: 'Cilindro Aldi', labelClass: 'bg-orange-300 text-orange-900' },
+  { linea: 'Cilindro Aldi', labelClass: 'bg-orange-200 text-orange-900' },
   { linea: 'Coco Aldi',     labelClass: 'bg-cyan-200 text-cyan-900' },
-  { linea: 'Cilindro Lidl', labelClass: 'bg-yellow-200 text-yellow-900' },
+  { linea: 'Cilindro Lidl', labelClass: 'bg-amber-200 text-amber-900' },
   { linea: 'MASKOM',        labelClass: 'bg-white text-slate-800 border border-slate-200' },
-  { linea: 'MERCADONA',     labelClass: 'bg-green-300 text-green-900' },
-  { linea: 'Consum',        labelClass: 'bg-yellow-200 text-yellow-900' },
+  { linea: 'MERCADONA',     labelClass: 'bg-emerald-200 text-emerald-900' },
+  { linea: 'Consum',        labelClass: 'bg-amber-200 text-amber-900' },
 ]
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
@@ -242,136 +245,111 @@ watch(fecha, cargarDatos, { immediate: true })
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Fila de cabecera -->
+  <div class="space-y-5">
     <div class="flex flex-wrap items-center gap-3">
-      <div class="flex items-center gap-1 border border-slate-300 rounded px-3 py-1.5 bg-white">
-        <span class="text-sm font-medium text-slate-600 mr-2">Día de Producción</span>
-        <button @click="prevDia" class="px-1 text-slate-500 hover:text-slate-800">◀</button>
+      <div class="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-sm">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-2">Día de producción</span>
+        <button @click="prevDia" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+          <ChevronLeft class="w-4 h-4" />
+        </button>
         <input
           type="date"
           v-model="fecha"
-          class="text-sm border-none outline-none focus:ring-0 bg-transparent"
+          class="text-sm font-semibold text-slate-900 border-none outline-none focus:ring-0 bg-transparent"
         />
-        <button @click="nextDia" class="px-1 text-slate-500 hover:text-slate-800">▶</button>
-        <span class="ml-2 text-sm font-semibold text-slate-700 capitalize">{{ diaSemana }}</span>
+        <button @click="nextDia" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+          <ChevronRight class="w-4 h-4" />
+        </button>
+        <span class="ml-1 text-xs font-semibold text-slate-700 capitalize px-2 py-0.5 rounded bg-slate-100">{{ diaSemana }}</span>
       </div>
-      <span class="ml-auto text-xs text-slate-400 italic">Solo lectura</span>
+      <span class="ml-auto text-[11px] font-medium text-slate-400 italic">Solo lectura</span>
     </div>
 
-    <!-- Error -->
-    <div v-if="errorMsg" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 font-medium">
+    <div v-if="errorMsg" class="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
       {{ errorMsg }}
     </div>
 
-    <!-- Cargando -->
-    <div v-if="loading" class="text-center py-12 text-slate-400 text-sm">Cargando…</div>
+    <div v-if="loading" class="text-center py-12 text-sm font-medium text-slate-400">Cargando…</div>
 
     <template v-else>
-      <p class="text-center text-xs text-slate-400 italic">plantilla producción</p>
+      <p class="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400">Plantilla producción</p>
 
-      <!-- Tabla principal -->
-      <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
-        <table class="planificacion-table w-full border-collapse text-sm">
-          <thead>
-            <tr class="bg-slate-800 text-white text-xs">
-              <th class="border border-slate-600 px-3 py-2 text-left">Cliente</th>
-              <th class="border border-slate-600 px-3 py-2 text-left">Producto</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">Stock Inicial</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">¿Actualizado?</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">Expediciones</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">OF REAL</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">carros/kg OF</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">OF calculada</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">Stock Final Prev</th>
-              <th class="border border-slate-600 px-3 py-2 text-center">SF ideal</th>
-            </tr>
-          </thead>
+      <Card flush>
+        <div class="overflow-x-auto">
+          <table class="planificacion-table w-full border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs">
+                <th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Cliente</th>
+                <th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Producto</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Stock Inicial</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">¿Actualizado?</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Expediciones</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">OF Real</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Carros/kg OF</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">OF Calculada</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Stock Final Prev</th>
+                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">SF Ideal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="fila in FILAS" :key="rowKey(fila)" :class="['border-b border-slate-100', fila.rowClass]">
+                <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">{{ fila.cliente }}</td>
+                <td class="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">{{ fila.producto }}</td>
+                <td class="px-3 py-2 text-center text-sm font-medium text-slate-700">{{ getNum(fila, 'stock_inicial') || '—' }}</td>
+                <td class="px-3 py-2 text-center">
+                  <Badge :variant="isActualizado(fila) ? 'success' : 'neutral'">
+                    {{ isActualizado(fila) ? 'Sí' : 'No' }}
+                  </Badge>
+                </td>
+                <td class="px-3 py-2 text-center text-sm font-medium text-slate-700">{{ getNum(fila, 'expediciones') || '—' }}</td>
+                <td class="px-3 py-2 text-center text-sm font-medium text-slate-700"
+                  :class="!isAldiRow(fila) ? 'bg-slate-50/60' : ''">
+                  <template v-if="isAldiRow(fila)">{{ getNum(fila, 'of_real') || '—' }}</template>
+                </td>
+                <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700"
+                  :class="!isAldiRow(fila) ? 'bg-slate-50/60' : 'bg-slate-50/40'">
+                  <template v-if="isAldiRow(fila)">
+                    {{ carrosKgOf(fila) ?? (getNum(fila, 'carros_kg_of') || '—') }}
+                  </template>
+                </td>
+                <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700"
+                  :class="!isAldiRow(fila) ? 'bg-slate-50/60' : ''">
+                  <template v-if="isAldiRow(fila)">{{ ofCalculadaPlan(fila) ?? '—' }}</template>
+                </td>
+                <td class="px-3 py-2 text-center font-semibold text-slate-700"
+                  :class="isAldiRow(fila) ? 'bg-slate-50/40' : 'bg-slate-50/60'">
+                  <template v-if="isAldiRow(fila)">{{ stockFinalPrev(fila) ?? '—' }}</template>
+                </td>
+                <td class="px-3 py-2 text-center text-sm font-semibold"
+                  :class="[
+                    !isAldiRow(fila) ? 'bg-slate-50/60' : '',
+                    sfIdealPlan(fila) != null && sfIdealPlan(fila) < 0 ? 'text-red-600' : 'text-slate-700'
+                  ]">
+                  <template v-if="isAldiRow(fila)">{{ sfIdealPlan(fila) ?? '—' }}</template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card flush class="max-w-2xl">
+        <div class="px-6 py-3 border-b border-slate-100">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Notas de producción</h3>
+        </div>
+        <table class="border-collapse text-sm w-full">
           <tbody>
-            <tr v-for="fila in FILAS" :key="rowKey(fila)" :class="fila.rowClass">
-              <td class="border border-slate-200 px-3 py-1.5 font-semibold text-slate-800 whitespace-nowrap">
-                {{ fila.cliente }}
-              </td>
-              <td class="border border-slate-200 px-3 py-1.5 text-slate-700 whitespace-nowrap">
-                {{ fila.producto }}
-              </td>
-
-              <!-- Stock Inicial -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm text-slate-700">
-                {{ getNum(fila, 'stock_inicial') || '—' }}
-              </td>
-
-              <!-- ¿Actualizado? -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center">
-                <span
-                  :class="isActualizado(fila)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-200 text-slate-400'"
-                  class="inline-block px-2 py-0.5 rounded text-xs font-semibold select-none"
-                >
-                  {{ isActualizado(fila) ? 'Sí' : 'No' }}
-                </span>
-              </td>
-
-              <!-- Expediciones -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm text-slate-700">
-                {{ getNum(fila, 'expediciones') || '—' }}
-              </td>
-
-              <!-- OF REAL -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm text-slate-700"
-                :class="!isAldiRow(fila) ? 'bg-slate-100' : ''">
-                <template v-if="isAldiRow(fila)">{{ getNum(fila, 'of_real') || '—' }}</template>
-              </td>
-
-              <!-- carros/kg OF -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm font-semibold text-slate-700"
-                :class="!isAldiRow(fila) ? 'bg-slate-100' : 'bg-slate-50'">
-                <template v-if="isAldiRow(fila)">
-                  {{ carrosKgOf(fila) ?? (getNum(fila, 'carros_kg_of') || '—') }}
-                </template>
-              </td>
-
-              <!-- OF calculada -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm font-semibold text-slate-700"
-                :class="!isAldiRow(fila) ? 'bg-slate-100' : ''">
-                <template v-if="isAldiRow(fila)">{{ ofCalculadaPlan(fila) ?? '—' }}</template>
-              </td>
-
-              <!-- Stock Final Prev (calculado) -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center font-semibold text-slate-700"
-                :class="isAldiRow(fila) ? 'bg-slate-50' : 'bg-slate-100'">
-                <template v-if="isAldiRow(fila)">{{ stockFinalPrev(fila) ?? '—' }}</template>
-              </td>
-
-              <!-- SF ideal -->
-              <td class="border border-slate-200 px-3 py-1.5 text-center text-sm font-semibold"
-                :class="[
-                  !isAldiRow(fila) ? 'bg-slate-100' : '',
-                  sfIdealPlan(fila) != null && sfIdealPlan(fila) < 0 ? 'text-red-600' : 'text-slate-700'
-                ]">
-                <template v-if="isAldiRow(fila)">{{ sfIdealPlan(fila) ?? '—' }}</template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Sección de notas de producción -->
-      <div class="mt-6 overflow-x-auto">
-        <table class="border-collapse text-sm w-full max-w-2xl">
-          <tbody>
-            <tr v-for="l in LINEAS" :key="l.linea">
-              <td :class="['border border-slate-300 px-4 py-2 font-bold text-center w-44 whitespace-nowrap', l.labelClass]">
+            <tr v-for="l in LINEAS" :key="l.linea" class="border-b border-slate-100 last:border-b-0">
+              <td :class="['px-4 py-2.5 font-bold text-center w-44 whitespace-nowrap text-xs', l.labelClass]">
                 {{ l.linea }}
               </td>
-              <td class="border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+              <td class="px-4 py-2.5 text-sm font-medium text-slate-700">
                 {{ notasData[l.linea] || '—' }}
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </Card>
     </template>
   </div>
 </template>

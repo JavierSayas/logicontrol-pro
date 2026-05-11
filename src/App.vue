@@ -1,14 +1,16 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { useLogisticsStore } from './stores/logistics'
 import { useAuthStore } from './stores/auth'
+import { supabase } from './lib/supabase'
 import OrdenDeCarga from './components/OrdenDeCarga.vue'
 import CartelesPT from './components/CartelesPT.vue'
 import Basculas from './components/Basculas.vue'
 import CuadrePT from './components/CuadrePT.vue'
-import Lidl from './components/Lidl.vue'
+import AlbaranesManual from './components/AlbaranesManual.vue'
+import Preventivos from './components/Preventivos.vue'
 import Login from './components/Login.vue'
-import { Truck, Tag, Scale, ClipboardList, Building2, LogOut } from 'lucide-vue-next'
+import { Truck, Tag, Scale, ClipboardList, FileText, Wrench, LogOut } from 'lucide-vue-next'
 
 const store = useLogisticsStore()
 const auth = useAuthStore()
@@ -17,12 +19,108 @@ const tabs = [
   { id: 'pedidos', label: 'Orden de Carga', icon: Truck },
   { id: 'carteles', label: 'Carteles PT', icon: Tag },
   { id: 'basculas', label: 'Básculas', icon: Scale },
-  { id: 'cuadre', label: 'Cuadre PT', icon: ClipboardList },
-  { id: 'lidl', label: 'Lidl', icon: Building2 },
+  { id: 'cuadre', label: 'Pedidos', icon: ClipboardList },
+  { id: 'albaranes', label: 'Albaranes Manual', icon: FileText },
+  { id: 'preventivos', label: 'Preventivos maquinaria', icon: Wrench },
 ]
 
-onMounted(() => {
-  auth.init()
+const TODAS_LAS_PESTANAS = tabs.map(t => t.id)
+
+const PERMISOS_POR_ROL = {
+  admin: TODAS_LAS_PESTANAS,
+  user: TODAS_LAS_PESTANAS,
+  logistica: ['preventivos'],
+}
+
+const pestanasPermitidas = computed(() => {
+  const rolActual = auth.role || 'user'
+  return PERMISOS_POR_ROL[rolActual] || PERMISOS_POR_ROL.user
+})
+
+const tabsVisibles = computed(() =>
+  tabs.filter(t => pestanasPermitidas.value.includes(t.id))
+)
+
+function aplicarPermisos() {
+  if (!pestanasPermitidas.value.includes(store.activeTab)) {
+    store.activeTab = tabsVisibles.value[0]?.id || 'preventivos'
+  }
+}
+
+const DIA_ALERTA = 2
+const BASCULA_VIGILADA = 'BÁSCULA MUELLE'
+const basculasPendientes = ref(false)
+const preventivosPendientes = ref(false)
+
+function getSemanaActual() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 1)
+  const diff = now - start
+  const oneWeek = 1000 * 60 * 60 * 24 * 7
+  return Math.ceil((diff / oneWeek) + start.getDay() / 7)
+}
+
+async function comprobarBasculasPendientes() {
+  if (!auth.isAuthenticated) {
+    basculasPendientes.value = false
+    return
+  }
+  const dow = new Date().getDay()
+  if (dow < DIA_ALERTA && dow !== 0) {
+    basculasPendientes.value = false
+    return
+  }
+  try {
+    const semana = getSemanaActual()
+    const anio = new Date().getFullYear()
+    const { count, error } = await supabase
+      .from('basculas')
+      .select('id', { count: 'exact', head: true })
+      .eq('semana', semana)
+      .eq('anio', anio)
+      .eq('nombre_bascula', BASCULA_VIGILADA)
+    if (error) throw error
+    basculasPendientes.value = (count ?? 0) === 0
+  } catch {
+    basculasPendientes.value = false
+  }
+}
+
+async function comprobarPreventivosPendientes() {
+  if (!auth.isAuthenticated) {
+    preventivosPendientes.value = false
+    return
+  }
+  try {
+    const { count, error } = await supabase
+      .from('v_estado_tareas_maquinas')
+      .select('maquina_id', { count: 'exact', head: true })
+      .eq('vencida', true)
+    if (error) throw error
+    preventivosPendientes.value = (count ?? 0) > 0
+  } catch {
+    preventivosPendientes.value = false
+  }
+}
+
+onMounted(async () => {
+  await auth.init()
+  aplicarPermisos()
+  await Promise.all([
+    comprobarBasculasPendientes(),
+    comprobarPreventivosPendientes(),
+  ])
+})
+
+watch(() => auth.role, aplicarPermisos)
+
+watch(() => store.activeTab, (nuevo, anterior) => {
+  if (anterior === 'basculas' && nuevo !== 'basculas') {
+    comprobarBasculasPendientes()
+  }
+  if (anterior === 'preventivos' && nuevo !== 'preventivos') {
+    comprobarPreventivosPendientes()
+  }
 })
 
 async function handleLogout() {
@@ -73,13 +171,13 @@ async function handleLogout() {
           </div>
         </div>
 
-        <div class="flex gap-1">
+        <div class="flex gap-1 flex-wrap">
           <button
-            v-for="tab in tabs"
+            v-for="tab in tabsVisibles"
             :key="tab.id"
             @click="store.activeTab = tab.id"
             :class="[
-              'flex items-center gap-2 px-5 py-3 rounded-t-xl font-semibold text-sm transition-all duration-200',
+              'relative flex items-center gap-2 px-5 py-3 rounded-t-xl font-semibold text-sm transition-all duration-200',
               store.activeTab === tab.id
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -87,6 +185,22 @@ async function handleLogout() {
           >
             <component :is="tab.icon" class="w-4 h-4" />
             <span>{{ tab.label }}</span>
+            <span
+              v-if="tab.id === 'basculas' && basculasPendientes"
+              class="absolute top-1.5 right-1.5 flex h-2.5 w-2.5"
+              title="Pendiente: comprobar la báscula esta semana"
+            >
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+            <span
+              v-if="tab.id === 'preventivos' && preventivosPendientes"
+              class="absolute top-1.5 right-1.5 flex h-2.5 w-2.5"
+              title="Hay tareas preventivas vencidas"
+            >
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
           </button>
         </div>
       </div>
@@ -98,7 +212,8 @@ async function handleLogout() {
         <CartelesPT v-else-if="store.activeTab === 'carteles'" />
         <Basculas v-else-if="store.activeTab === 'basculas'" />
         <CuadrePT v-else-if="store.activeTab === 'cuadre'" />
-        <Lidl v-else-if="store.activeTab === 'lidl'" />
+        <AlbaranesManual v-else-if="store.activeTab === 'albaranes'" />
+        <Preventivos v-else-if="store.activeTab === 'preventivos'" />
       </keep-alive>
     </main>
   </div>

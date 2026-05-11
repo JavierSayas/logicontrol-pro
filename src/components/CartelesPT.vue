@@ -3,6 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { supabaseOrigen } from '../lib/supabase'
 import { Tag, AlertCircle, Printer } from 'lucide-vue-next'
 import jsPDF from 'jspdf'
+import Card from './ui/Card.vue'
+import Button from './ui/Button.vue'
+import PageHeader from './ui/PageHeader.vue'
 
 const plataformas = ref([])
 const loadingPlataformas = ref(false)
@@ -156,55 +159,45 @@ async function generarCartel() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- HEADER -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl">
-          <Tag class="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h2 class="font-900 text-slate-900 text-lg">Carteles PT</h2>
-          <p class="text-sm text-slate-500 font-medium">Generación de carteles para producto terminado</p>
-        </div>
-      </div>
-      <button
-        @click="generarCartel"
-        :disabled="!puedeImprimir || generandoPDF"
-        :class="['flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-orange-500',
-          puedeImprimir && !generandoPDF
-            ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-lg shadow-orange-500/20'
-            : 'bg-slate-200 text-slate-400 cursor-not-allowed']"
-      >
-        <Printer class="w-4 h-4" />
-        <span v-if="generandoPDF">Generando...</span>
-        <span v-else>Imprimir Cartel</span>
-      </button>
-    </div>
+  <div class="space-y-8">
+    <PageHeader
+      caption="Producción"
+      :caption-icon="Tag"
+      theme="violet"
+      title="Carteles PT"
+      subtitle="Generación de carteles para producto terminado"
+    >
+      <template #actions>
+        <Button
+          size="lg"
+          :disabled="!puedeImprimir || generandoPDF"
+          :loading="generandoPDF"
+          @click="generarCartel"
+        >
+          <Printer class="w-4 h-4" />
+          <span v-if="generandoPDF">Generando...</span>
+          <span v-else>Imprimir Cartel</span>
+        </Button>
+      </template>
+    </PageHeader>
 
-    <!-- ERROR -->
-    <div v-if="errorMsg" class="flex items-center gap-2 text-red-600 text-sm font-semibold bg-red-50 px-4 py-3 rounded-lg border border-red-200">
+    <div v-if="errorMsg" class="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
       <AlertCircle class="w-4 h-4 shrink-0" />
       <span>{{ errorMsg }}</span>
     </div>
 
-    <!-- CONTENIDO: FORMULARIO + PREVIEW -->
-    <div class="flex gap-6 items-start">
-
-      <!-- FORMULARIO -->
-      <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-8 w-1/2">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <Card padding="lg">
         <div class="space-y-6">
-
-          <!-- 1. PLATAFORMA -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               1. Plataforma
             </label>
-            <div v-if="loadingPlataformas" class="text-sm text-slate-400 py-2">Cargando plataformas...</div>
+            <div v-if="loadingPlataformas" class="text-sm font-medium text-slate-400 py-2">Cargando plataformas...</div>
             <select
               v-else
               @change="seleccionarPlataforma(plataformas.find(p => p.id === Number($event.target.value)))"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm text-slate-900 bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all appearance-none cursor-pointer"
+              class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 cursor-pointer focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
             >
               <option value="" disabled selected>Selecciona una plataforma...</option>
               <option
@@ -215,15 +208,14 @@ async function generarCartel() {
                 {{ plat.nombre }}
               </option>
             </select>
-            <p v-if="plataformaSeleccionada && plataformaSeleccionada.direccion" class="mt-2 text-xs text-slate-400 pl-1">
+            <p v-if="plataformaSeleccionada && plataformaSeleccionada.direccion" class="mt-2 text-xs font-medium text-slate-500 pl-1">
               {{ plataformaSeleccionada.direccion }}
             </p>
           </div>
 
-          <!-- 2. Nº PEDIDO MCD/CONSUM -->
           <div>
             <label
-              class="block text-xs font-bold uppercase tracking-wider mb-2 transition-colors"
+              class="block text-[11px] font-semibold uppercase tracking-wider mb-2 transition-colors"
               :class="esMcdOConsum ? 'text-slate-500' : 'text-slate-300'"
             >
               2. Nº Pedido MCD/Consum
@@ -233,40 +225,37 @@ async function generarCartel() {
               type="text"
               :disabled="!esMcdOConsum"
               placeholder="Introduce el nº de pedido..."
-              class="w-full px-4 py-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              class="w-full px-4 py-2.5 border rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-4 focus:ring-slate-100"
               :class="esMcdOConsum
-                ? 'border-slate-300 text-slate-900 bg-white hover:border-slate-400 cursor-text'
-                : 'border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed'"
+                ? 'border-slate-200 text-slate-900 bg-white hover:border-slate-300 focus:border-slate-400 cursor-text placeholder:text-slate-400'
+                : 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed placeholder:text-slate-300'"
             />
-            <p v-if="!esMcdOConsum" class="mt-1 text-xs text-slate-300 pl-1">
+            <p v-if="!esMcdOConsum" class="mt-1 text-xs font-medium text-slate-400 pl-1">
               Solo disponible para plataformas Mercadona o Consum
             </p>
           </div>
 
-          <!-- 3. FECHA DE ENTREGA -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               3. Fecha de Entrega
             </label>
             <input
               v-model="fechaEntrega"
               type="date"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm text-slate-900 bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all cursor-pointer"
+              class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 cursor-pointer focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
             />
           </div>
-
         </div>
-      </div>
+      </Card>
 
-      <!-- PREVIEW -->
-      <div v-if="plataformaSeleccionada" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 w-1/2">
-        <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Vista previa</h3>
+      <Card v-if="plataformaSeleccionada" padding="md">
+        <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">Vista previa</h3>
         <div class="border-2 border-slate-900 rounded-lg overflow-hidden">
           <div class="bg-slate-300 text-center py-1">
             <span class="text-[10px] font-bold tracking-wider text-slate-700">LUGAR DE ENTREGA:</span>
           </div>
           <div class="text-center py-3 border-b border-slate-300">
-            <span class="text-xl font-black text-slate-900">{{ plataformaSeleccionada.nombre }}</span>
+            <span class="text-xl font-bold text-slate-900">{{ plataformaSeleccionada.nombre }}</span>
           </div>
           <div v-if="esMcdOConsum && numeroPedido.trim()" class="text-center py-1.5 border-b border-slate-300">
             <span class="text-xs text-slate-800">Nº de pedido: {{ numeroPedido.trim() }}</span>
@@ -275,17 +264,16 @@ async function generarCartel() {
             <span class="text-[10px] font-bold tracking-wider text-slate-700">FECHA DE ENTREGA:</span>
           </div>
           <div class="text-center py-2">
-            <span v-if="fechaEntrega" class="text-xl font-black text-slate-900">
+            <span v-if="fechaEntrega" class="text-xl font-bold text-slate-900">
               {{ new Date(fechaEntrega + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}
             </span>
-            <span v-else class="text-sm text-slate-300">DD/MM/AAAA</span>
+            <span v-else class="text-sm font-medium text-slate-300">DD/MM/AAAA</span>
           </div>
           <div class="px-3 pb-2">
             <img src="/Imagen1.png" alt="No remontar / Se puede remontar" class="w-full max-h-[25vh] object-contain" />
           </div>
         </div>
-      </div>
-
+      </Card>
     </div>
   </div>
 </template>
