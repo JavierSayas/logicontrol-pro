@@ -1,11 +1,14 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ClipboardList, Factory, Calculator, FileSpreadsheet, Building2 } from 'lucide-vue-next'
 import CuadrePT_Produccion from './CuadrePT_Produccion.vue'
 import CuadrePT_Cuadre from './CuadrePT_Cuadre.vue'
 import CuadrePT_ProduccionDia from './CuadrePT_ProduccionDia.vue'
 import Lidl from './Lidl.vue'
 import PageHeader from './ui/PageHeader.vue'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
 
 const subtabs = [
   { id: 'produccion',    label: 'Producción',         icon: Factory },
@@ -14,7 +17,26 @@ const subtabs = [
   { id: 'lidl',          label: 'Lidl',               icon: Building2 },
 ]
 
+const SUBPESTANAS_POR_ROL = {
+  logistica: ['lidl'],
+}
+
+const subtabsVisibles = computed(() => {
+  const permitidas = SUBPESTANAS_POR_ROL[auth.role]
+  if (!permitidas) return subtabs
+  return subtabs.filter(t => permitidas.includes(t.id))
+})
+
 const activeSubtab = ref('produccion')
+
+function aplicarPermisosSubtab() {
+  if (!subtabsVisibles.value.find(t => t.id === activeSubtab.value)) {
+    activeSubtab.value = subtabsVisibles.value[0]?.id || 'produccion'
+  }
+}
+
+onMounted(aplicarPermisosSubtab)
+watch(() => auth.role, aplicarPermisosSubtab)
 </script>
 
 <template>
@@ -27,9 +49,9 @@ const activeSubtab = ref('produccion')
       subtitle="Planificación, cuadre, producción y plataformas Lidl"
     />
 
-    <div class="flex gap-1 border-b border-slate-200 -mt-2">
+    <div v-if="subtabsVisibles.length > 1" class="flex gap-1 border-b border-slate-200 -mt-2">
       <button
-        v-for="tab in subtabs"
+        v-for="tab in subtabsVisibles"
         :key="tab.id"
         @click="activeSubtab = tab.id"
         :class="[

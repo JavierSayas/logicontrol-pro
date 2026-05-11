@@ -18,6 +18,8 @@ import {
   ShieldAlert,
   ChevronRight,
   ExternalLink,
+  Plus,
+  Check,
 } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 import Button from './ui/Button.vue'
@@ -54,6 +56,11 @@ const incidenciaForm = ref({
   foto_preview: null,
 })
 const guardandoIncidencia = ref(false)
+
+const operarios = ref([])
+const mostrarFormularioOperario = ref(false)
+const nuevoOperario = ref('')
+const guardandoOperario = ref(false)
 
 const errorMsg = ref('')
 const successMsg = ref('')
@@ -100,7 +107,54 @@ function esToyota(m) {
   return (m?.proveedor || '').trim().toUpperCase() === 'TOYOTA'
 }
 
-onMounted(cargarListado)
+onMounted(async () => {
+  await Promise.all([cargarListado(), cargarOperarios()])
+})
+
+async function cargarOperarios() {
+  try {
+    const { data, error } = await supabase
+      .from('operarios')
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
+    if (error) throw error
+    operarios.value = data || []
+  } catch (err) {
+    console.error('Error cargando operarios:', err.message)
+  }
+}
+
+async function anadirOperario() {
+  const nombre = nuevoOperario.value.trim()
+  if (!nombre) return
+  guardandoOperario.value = true
+  try {
+    const { data, error } = await supabase
+      .from('operarios')
+      .insert({
+        nombre,
+        created_by: auth.user?.id || null,
+        updated_by: auth.user?.id || null,
+      })
+      .select('id, nombre')
+      .single()
+    if (error) throw error
+    operarios.value = [...operarios.value, data].sort((a, b) => a.nombre.localeCompare(b.nombre))
+    incidenciaForm.value.reportado_por = data.nombre
+    nuevoOperario.value = ''
+    mostrarFormularioOperario.value = false
+  } catch (err) {
+    mostrarError('No se pudo añadir el operario: ' + err.message)
+  } finally {
+    guardandoOperario.value = false
+  }
+}
+
+function cancelarAnadirOperario() {
+  nuevoOperario.value = ''
+  mostrarFormularioOperario.value = false
+}
 
 async function cargarListado() {
   loadingListado.value = true
@@ -184,12 +238,14 @@ function abrirRegistrarIncidencia(m) {
   }
   maquinaSeleccionada.value = m
   incidenciaForm.value = {
-    reportado_por: nombreSugerido(),
+    reportado_por: '',
     fecha_reporte: new Date().toISOString().split('T')[0],
     descripcion: '',
     foto_file: null,
     foto_preview: null,
   }
+  mostrarFormularioOperario.value = false
+  nuevoOperario.value = ''
   vistaActiva.value = 'incidencia'
 }
 
@@ -713,13 +769,48 @@ function textoFrecuencia(dias) {
             <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Reportado por <span class="text-red-500">*</span>
             </label>
-            <input
-              v-model="incidenciaForm.reportado_por"
-              type="text"
-              placeholder="Nombre"
-              required
-              class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
-            />
+            <div class="flex gap-2">
+              <select
+                v-model="incidenciaForm.reportado_por"
+                required
+                class="flex-1 min-w-0 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 cursor-pointer focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
+              >
+                <option value="" disabled>Selecciona un operario...</option>
+                <option v-for="op in operarios" :key="op.id" :value="op.nombre">{{ op.nombre }}</option>
+              </select>
+              <button
+                type="button"
+                @click="mostrarFormularioOperario = !mostrarFormularioOperario"
+                class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 transition-colors"
+                :title="mostrarFormularioOperario ? 'Cancelar' : 'Añadir nuevo operario'"
+              >
+                <X v-if="mostrarFormularioOperario" class="w-4 h-4" />
+                <Plus v-else class="w-4 h-4" />
+              </button>
+            </div>
+            <div v-if="mostrarFormularioOperario" class="mt-2 flex gap-2">
+              <input
+                v-model="nuevoOperario"
+                type="text"
+                placeholder="Nombre completo del nuevo operario"
+                @keydown.enter.prevent="anadirOperario"
+                class="flex-1 min-w-0 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
+              />
+              <button
+                type="button"
+                @click="anadirOperario"
+                :disabled="!nuevoOperario.trim() || guardandoOperario"
+                :class="[
+                  'shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors',
+                  !nuevoOperario.trim() || guardandoOperario
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-brand-600 text-white hover:bg-brand-700'
+                ]"
+              >
+                <Check class="w-4 h-4" />
+                Añadir
+              </button>
+            </div>
           </div>
           <div>
             <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Fecha de reporte</label>

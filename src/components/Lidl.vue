@@ -322,7 +322,7 @@ const siguienteStr = siguiente.toISOString().slice(0, 10)
 const fechaBadge = (fecha, par) => {
   if (fecha === mananaStr || fecha === pasadoStr) return 'bg-orange-500 text-white font-semibold'
   if (fecha === siguienteStr) return 'bg-amber-400 text-amber-950 font-semibold'
-  return par ? 'bg-white text-slate-600' : 'bg-slate-50 text-slate-600'
+  return par ? 'bg-white text-slate-800' : 'bg-slate-100 text-slate-800'
 }
 
 const DIAS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -335,6 +335,11 @@ const fmtFecha = (iso) => {
 
 const hoveredRow = ref(null)
 const hoveredCol = ref(null)
+const filaSeleccionada = ref(null)
+
+function toggleFilaSeleccionada(i) {
+  filaSeleccionada.value = filaSeleccionada.value === i ? null : i
+}
 
 const tableContainer = ref(null)
 
@@ -418,23 +423,23 @@ const scrollToHoy = async () => {
 
     <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex-1 min-h-0">
       <div ref="tableContainer" class="overflow-auto h-full">
-        <table class="text-xs border-collapse w-full">
+        <table class="text-xs border-collapse w-full table-fixed">
           <thead class="sticky top-0 z-20">
             <tr>
-              <th class="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600 border-b border-slate-200 text-left sticky left-0 z-30 min-w-[110px] bg-slate-50">
+              <th class="px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-800 border-b-2 border-slate-300 text-left sticky left-0 z-30 w-[110px] min-w-[110px] max-w-[110px] bg-slate-200">
                 Fecha
               </th>
               <th
                 v-for="(p, pi) in PLATAFORMAS" :key="p.key"
-                class="px-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-200 whitespace-nowrap text-center min-w-[44px] transition-colors"
-                :class="hoveredCol === pi ? 'bg-slate-100 text-slate-900' : 'bg-slate-50 text-slate-600'"
+                class="px-1 py-2.5 text-[11px] font-bold uppercase tracking-wider border-b-2 border-slate-300 whitespace-nowrap text-center w-[72px] min-w-[72px] max-w-[72px] transition-colors"
+                :class="hoveredCol === pi ? 'bg-slate-300 text-slate-900' : 'bg-slate-200 text-slate-800'"
               >
                 {{ p.label }}
               </th>
-              <th class="px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-l border-slate-200 whitespace-nowrap text-center min-w-[80px] text-slate-700 bg-slate-50">
+              <th class="px-2 py-2.5 text-[11px] font-bold uppercase tracking-wider border-b-2 border-l border-slate-300 whitespace-nowrap text-center w-[72px] min-w-[72px] max-w-[72px] text-slate-800 bg-slate-200">
                 Exp. hoy
               </th>
-              <th class="px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b border-l border-slate-200 whitespace-nowrap text-center min-w-[52px] text-emerald-700 bg-emerald-50/60">
+              <th class="px-2 py-2.5 text-[11px] font-bold uppercase tracking-wider border-b-2 border-l border-slate-300 whitespace-nowrap text-center w-[72px] min-w-[72px] max-w-[72px] text-emerald-800 bg-emerald-100">
                 Total
               </th>
             </tr>
@@ -444,16 +449,26 @@ const scrollToHoy = async () => {
               v-for="(fecha, i) in todasFechas"
               :key="fecha"
               :data-fecha="fecha"
-              class="border-b border-slate-100"
-              :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'"
+              class="border-b border-slate-200 transition-colors"
+              :class="[
+                filaSeleccionada === i
+                  ? 'bg-slate-300'
+                  : (i % 2 === 0 ? 'bg-white' : 'bg-slate-100')
+              ]"
               @mouseenter="hoveredRow = i"
               @mouseleave="hoveredRow = null; hoveredCol = null"
             >
-              <td class="px-3 py-1.5 sticky left-0 z-10 font-medium text-xs whitespace-nowrap border-r border-slate-100 transition-colors"
+              <td
+                @click="toggleFilaSeleccionada(i)"
+                class="px-3 py-1.5 sticky left-0 z-10 font-semibold text-xs whitespace-nowrap border-r border-slate-200 transition-colors cursor-pointer select-none"
                 :class="[
                   fechaBadge(fecha, i % 2 === 0),
-                  hoveredRow === i ? '!bg-slate-100 text-slate-900' : ''
-                ]">
+                  filaSeleccionada === i
+                    ? '!bg-slate-800 !text-white font-bold shadow-md ring-2 ring-slate-900 ring-inset'
+                    : (hoveredRow === i ? '!bg-slate-100 text-slate-900' : '')
+                ]"
+                :title="filaSeleccionada === i ? 'Click para desmarcar la fila' : 'Click para marcar la fila'"
+              >
                 {{ fmtFecha(fecha) }}
                 <span v-if="fecha === hoy" class="ml-1 text-[10px] bg-slate-900 text-white font-bold px-1.5 py-0.5 rounded">HOY</span>
               </td>
@@ -478,22 +493,22 @@ const scrollToHoy = async () => {
                 />
                 <div
                   class="w-full text-center px-0.5 py-0.5 tabular-nums text-[11px] select-none"
-                  :class="getVal(fecha, p.key) ? 'text-slate-800 font-medium' : 'text-slate-300'"
+                  :class="getVal(fecha, p.key) ? 'text-slate-900 font-semibold' : 'text-slate-400'"
                 >
                   {{ getVal(fecha, p.key) || '·' }}
                 </div>
               </td>
-              <td class="px-2 py-1.5 text-center tabular-nums border-l border-slate-200 text-[11px]"
+              <td class="px-2 py-1.5 text-center tabular-nums border-l-2 border-slate-300 text-[11px]"
                 :class="[
-                  i % 2 === 0 ? 'bg-slate-50/40' : 'bg-slate-50/20',
-                  calcExpediciones(fecha) ? 'font-bold text-slate-800' : 'text-slate-300'
+                  i % 2 === 0 ? 'bg-slate-100' : 'bg-slate-200/60',
+                  calcExpediciones(fecha) ? 'font-bold text-slate-900' : 'text-slate-400'
                 ]"
               >
                 {{ calcExpediciones(fecha) }}
               </td>
               <td
-                class="px-2 py-1.5 text-center tabular-nums font-bold border-l border-slate-200 text-emerald-700 text-xs"
-                :class="i % 2 === 0 ? 'bg-emerald-50/60' : 'bg-emerald-50/30'"
+                class="px-2 py-1.5 text-center tabular-nums font-bold border-l-2 border-slate-300 text-emerald-900 text-xs"
+                :class="i % 2 === 0 ? 'bg-emerald-100' : 'bg-emerald-200/70'"
               >
                 {{ totalFila(fecha) > 0 ? totalFila(fecha) : '' }}
               </td>
