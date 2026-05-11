@@ -40,7 +40,7 @@ const handleLogin = async () => {
           <div class="brand-badge">LP</div>
           <h1 class="brand-title">LogisPro</h1>
           <div class="brand-line"></div>
-          <p class="brand-sub">Gestion de Ordenes de Carga</p>
+          <p class="brand-sub">Gestión de Órdenes de Carga</p>
         </div>
       </div>
       <div class="login-right">
@@ -54,7 +54,7 @@ const handleLogin = async () => {
               <input id="d-email" type="email" v-model="email" required autocomplete="email" spellcheck="false" placeholder="tu@empresa.com" />
             </div>
             <div class="field">
-              <label for="d-pass">Contrasena</label>
+              <label for="d-pass">Contraseña</label>
               <input id="d-pass" type="password" v-model="password" required autocomplete="current-password" placeholder="••••••••" />
             </div>
 
@@ -69,7 +69,7 @@ const handleLogin = async () => {
             </button>
           </form>
 
-          <p class="form-footer">LOGISPRO &mdash; ACCESO RESTRINGIDO</p>
+          <p class="form-footer">LOGISPRO — ACCESO RESTRINGIDO</p>
         </div>
       </div>
     </div>
@@ -84,7 +84,7 @@ const handleLogin = async () => {
       </div>
 
       <div class="mobile-card login-fade-in">
-        <h2 class="form-title">Iniciar sesion</h2>
+        <h2 class="form-title">Iniciar sesión</h2>
 
         <form @submit.prevent="handleLogin">
           <div class="field">
@@ -92,7 +92,7 @@ const handleLogin = async () => {
             <input id="m-email" type="email" v-model="email" required autocomplete="email" spellcheck="false" placeholder="tu@empresa.com" />
           </div>
           <div class="field">
-            <label for="m-pass">Contrasena</label>
+            <label for="m-pass">Contraseña</label>
             <input id="m-pass" type="password" v-model="password" required autocomplete="current-password" placeholder="••••••••" />
           </div>
 
@@ -120,12 +120,13 @@ const handleLogin = async () => {
   display: flex;
   flex-direction: column;
   transition: opacity 0.3s ease, transform 0.3s ease;
+  font-family: var(--font-sans);
 }
 .login-exit { opacity: 0; transform: scale(1.02); }
 
 .login-topbar {
   height: 4px;
-  background: linear-gradient(90deg, #1e3a8a, #2563eb, #4f46e5);
+  background: var(--gradient-brand-strip);
   flex-shrink: 0;
 }
 
@@ -142,7 +143,7 @@ const handleLogin = async () => {
   width: 42%;
   max-width: 440px;
   min-height: 100%;
-  background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 40%, #3730a3 100%);
+  background: var(--gradient-brand-deep);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,20 +159,20 @@ const handleLogin = async () => {
   width: 52px;
   height: 52px;
   border: 2px solid rgba(255,255,255,0.2);
-  border-radius: 12px;
-  color: white;
+  border-radius: var(--radius-xl);
+  color: var(--fg-on-brand);
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: var(--fw-extrabold);
   letter-spacing: 0.05em;
   margin-bottom: 1.5rem;
 }
 
 .brand-title {
-  color: white;
+  color: var(--fg-on-brand);
   font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
+  font-weight: var(--fw-extrabold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tighter);
 }
 
 .brand-line {
@@ -184,7 +185,7 @@ const handleLogin = async () => {
 .brand-sub {
   color: rgba(255,255,255,0.45);
   font-size: 0.78rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   letter-spacing: 0.04em;
 }
 
@@ -194,7 +195,7 @@ const handleLogin = async () => {
   align-items: center;
   justify-content: center;
   padding: 3rem;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .login-form {
@@ -219,10 +220,10 @@ const handleLogin = async () => {
 .mobile-badge {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #1e3a8a, #3730a3);
-  color: white;
-  font-weight: 800;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--brand-900), var(--indigo-800));
+  color: var(--fg-on-brand);
+  font-weight: var(--fw-extrabold);
   font-size: 0.9rem;
   display: flex;
   align-items: center;
@@ -232,47 +233,47 @@ const handleLogin = async () => {
 
 .mobile-title {
   font-size: 1.05rem;
-  font-weight: 800;
-  color: #1e3a8a;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-weight: var(--fw-extrabold);
+  color: var(--brand-900);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-snug);
 }
 
 .mobile-sub {
   font-size: 0.7rem;
-  color: #94a3b8;
-  font-weight: 600;
+  color: var(--fg-5);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .mobile-card {
-  background: white;
-  border-radius: 16px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-2xl);
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-card-lift);
   flex: 0;
 }
 
 .mobile-footer {
   text-align: center;
   font-size: 0.6rem;
-  color: #cbd5e1;
+  color: var(--slate-300);
   letter-spacing: 0.1em;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   padding: 1.5rem 0;
   margin-top: auto;
 }
 
 .form-title {
   font-size: 1.15rem;
-  font-weight: 800;
-  color: #1e293b;
-  letter-spacing: -0.02em;
+  font-weight: var(--fw-extrabold);
+  color: var(--fg-2);
+  letter-spacing: var(--tracking-tight);
 }
 
 .form-sub {
-  color: #94a3b8;
+  color: var(--fg-5);
   font-size: 0.82rem;
   margin-top: 0.2rem;
   margin-bottom: 1.75rem;
@@ -291,10 +292,10 @@ form {
 .field label {
   display: block;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--fg-5);
   margin-bottom: 0.35rem;
 }
 
@@ -302,20 +303,21 @@ form {
   width: 100%;
   padding: 0.65rem 0;
   border: none;
-  border-bottom: 1.5px solid #e2e8f0;
+  border-bottom: 1.5px solid var(--border-1);
   background: transparent;
   font-size: 0.92rem;
-  color: #1e293b;
+  color: var(--fg-2);
   outline: none;
   transition: border-color 0.2s;
+  font-family: inherit;
 }
 
 .field input:focus {
-  border-bottom-color: #2563eb;
+  border-bottom-color: var(--border-focus);
 }
 
 .field input::placeholder {
-  color: #cbd5e1;
+  color: var(--slate-300);
 }
 
 .form-error {
@@ -323,24 +325,24 @@ form {
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.7rem;
-  background: #fef2f2;
-  border-left: 3px solid #ef4444;
-  color: #dc2626;
+  background: var(--red-50);
+  border-left: 3px solid var(--red-500);
+  color: var(--accent-danger);
   font-size: 0.78rem;
-  font-weight: 500;
-  border-radius: 0 6px 6px 0;
+  font-weight: var(--fw-medium);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .form-btn {
   width: 100%;
   padding: 0.75rem;
-  background: #1e3a8a;
-  color: white;
-  font-weight: 700;
+  background: var(--brand-900);
+  color: var(--fg-on-brand);
+  font-weight: var(--fw-bold);
   font-size: 0.85rem;
   letter-spacing: 0.01em;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
   display: flex;
@@ -348,9 +350,10 @@ form {
   justify-content: center;
   gap: 0.5rem;
   margin-top: 0.25rem;
+  font-family: inherit;
 }
 
-.form-btn:hover { background: #2563eb; }
+.form-btn:hover { background: var(--brand-600); }
 .form-btn:active { transform: scale(0.98); }
 .form-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -358,7 +361,7 @@ form {
   display: inline-block;
   width: 1rem;
   height: 1rem;
-  border: 2px solid white;
+  border: 2px solid var(--fg-on-brand);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -366,11 +369,11 @@ form {
 
 .form-footer {
   font-size: 0.62rem;
-  color: #cbd5e1;
+  color: var(--slate-300);
   text-align: center;
   margin-top: 2.5rem;
   letter-spacing: 0.1em;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .login-fade-in {

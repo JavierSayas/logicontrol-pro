@@ -145,7 +145,7 @@ async function handleLogout() {
             </div>
             <div>
               <h1 class="text-2xl font-900 text-slate-900 tracking-tight">LogisPro</h1>
-              <p class="text-xs text-slate-500 font-medium">Gestión de Órdenes de Carga</p>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Gestión de Órdenes de Carga</p>
             </div>
           </div>
           <div class="flex items-center gap-3">

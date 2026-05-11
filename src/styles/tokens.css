@@ -1,0 +1,219 @@
+/* ============================================================
+   LogisPro Design System — Color & Type Foundations
+   Source of truth: tailwind.config.js + style.css + per-component
+   Tailwind classes used across logicontrol-pro.
+
+   NOTE: Inter font is loaded in index.html.
+   ============================================================ */
+
+:root {
+  /* ============== Brand (blue/indigo) ============== */
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;   /* primary CTA */
+  --brand-700: #1d4ed8;   /* hover */
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;   /* deep brand / login bg */
+
+  --indigo-50:  #eef2ff;
+  --indigo-600: #4f46e5;
+  --indigo-700: #4338ca;
+  --indigo-800: #3730a3;  /* login gradient stop */
+
+  /* ============== Neutrals (slate) ============== */
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* ============== Semantic accents ============== */
+  --emerald-50:  #ecfdf5;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
+
+  --amber-50:  #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-400: #fbbf24;
+  --amber-700: #b45309;
+  --amber-800: #92400e;
+
+  --red-50:  #fef2f2;
+  --red-200: #fecaca;
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+
+  --violet-50:  #f5f3ff;
+  --violet-400: #a78bfa;
+  --violet-600: #7c3aed;
+  --violet-800: #5b21b6;
+
+  --teal-50:  #f0fdfa;
+  --teal-400: #2dd4bf;
+  --teal-800: #115e59;
+
+  --cyan-600: #0891b2;
+
+  /* ============== Semantic surface aliases ============== */
+  --bg-app:        linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  --bg-app-soft:   linear-gradient(135deg, #f8fafc 0%, rgba(219,234,254,0.3) 50%, rgba(238,242,255,0.2) 100%);
+  --bg-surface:    #ffffff;
+  --bg-surface-2:  var(--slate-50);
+  --bg-overlay:    rgba(15, 23, 42, 0.6);
+
+  --fg-1:          var(--slate-900);     /* headings */
+  --fg-2:          var(--slate-800);     /* body */
+  --fg-3:          var(--slate-700);
+  --fg-4:          var(--slate-500);     /* meta, labels */
+  --fg-5:          var(--slate-400);     /* placeholders, disabled */
+  --fg-on-brand:   #ffffff;
+
+  --border-1:      var(--slate-200);
+  --border-2:      var(--slate-100);
+  --border-strong: var(--slate-300);
+  --border-focus:  var(--brand-600);
+
+  --accent-primary:        var(--brand-600);
+  --accent-primary-hover:  var(--brand-700);
+  --accent-deep:           var(--brand-900);
+  --accent-success:        var(--emerald-600);
+  --accent-warning:        var(--amber-700);
+  --accent-danger:         var(--red-600);
+
+  --gradient-brand-icon:    linear-gradient(135deg, var(--brand-600) 0%, var(--indigo-700) 100%);
+  --gradient-brand-deep:    linear-gradient(160deg, #0f172a 0%, var(--brand-900) 40%, var(--indigo-800) 100%);
+  --gradient-brand-strip:   linear-gradient(90deg, var(--brand-900), var(--brand-600), var(--indigo-600));
+  --gradient-pill-blue:     linear-gradient(to right, #eff6ff, #eef2ff);
+
+  /* ============== Type ============== */
+  --font-sans:  'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --fw-regular:    400;
+  --fw-medium:     500;
+  --fw-semibold:   600;
+  --fw-bold:       700;
+  --fw-extrabold:  800;
+  --fw-black:      900;
+
+  --fs-2xs:   10px;
+  --fs-xs:    12px;
+  --fs-sm:    14px;
+  --fs-base:  16px;
+  --fs-lg:    18px;
+  --fs-xl:    20px;
+  --fs-2xl:   24px;
+  --fs-3xl:   30px;
+  --fs-4xl:   36px;
+
+  --fs-eyebrow:        11px;
+  --tracking-eyebrow:  0.08em;
+  --tracking-tight:    -0.02em;
+  --tracking-tighter:  -0.03em;
+
+  --lh-tight:    1.15;
+  --lh-snug:     1.25;
+  --lh-normal:   1.5;
+
+  /* ============== Radius / Shadow / Spacing ============== */
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-full: 9999px;
+
+  --shadow-sm:  0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.10), 0 10px 10px -5px rgba(0,0,0,0.04);
+  --shadow-brand-glow: 0 10px 25px -10px rgba(37, 99, 235, 0.45);
+  --shadow-card-lift:  0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+}
+
+/* ============================================================
+   Semantic role-based utility classes.
+   Use these when not using Tailwind utilities directly (e.g. in
+   <style scoped> blocks or plain CSS files).
+   ============================================================ */
+
+.font-sans { font-family: var(--font-sans); }
+.font-mono { font-family: var(--font-mono); }
+
+.h1 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  color: var(--fg-1);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-tight);
+}
+.h1--display {
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-tighter);
+}
+.h2 {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--fg-1);
+  letter-spacing: var(--tracking-tight);
+}
+.h3 {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+}
+
+.body {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--fg-2);
+  line-height: var(--lh-normal);
+}
+.body-sm {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-3);
+}
+.meta {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-4);
+}
+
+.eyebrow {
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--fg-4);
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-3);
+}
