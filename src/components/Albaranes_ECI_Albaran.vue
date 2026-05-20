@@ -170,8 +170,7 @@ function imprimir() {
         <div class="grid grid-cols-2 gap-x-8">
           <div class="flex items-center gap-2">
             <span class="font-bold whitespace-nowrap eci-label-left">Nº PEDIDO :</span>
-            <input v-model="albaranActivo.numPedido" type="text" class="eci-input w-28 text-center" />
-            <input v-model="albaranActivo.numPedido2" type="text" class="eci-input w-28 text-center" />
+            <input v-model="albaranActivo.numPedido" type="text" class="eci-input flex-1" />
           </div>
           <div class="flex items-center gap-2">
             <span class="font-bold whitespace-nowrap eci-label-right">FECHA ENTREGA :</span>

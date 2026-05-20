@@ -68,7 +68,6 @@ function filasSeed() {
 function crearAlbaran(overrides = {}) {
   return {
     numPedido: '',
-    numPedido2: '',
     numTransporte: '',
     numAlbaran: '0',
     filas: filasSeed(),
