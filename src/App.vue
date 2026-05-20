@@ -7,7 +7,7 @@ import OrdenDeCarga from './components/OrdenDeCarga.vue'
 import CartelesPT from './components/CartelesPT.vue'
 import Basculas from './components/Basculas.vue'
 import CuadrePT from './components/CuadrePT.vue'
-import AlbaranesManual from './components/AlbaranesManual.vue'
+import Albaranes from './components/Albaranes.vue'
 import Preventivos from './components/Preventivos.vue'
 import Login from './components/Login.vue'
 import { Truck, Tag, Scale, ClipboardList, FileText, Wrench, LogOut } from 'lucide-vue-next'
@@ -20,7 +20,7 @@ const tabs = [
   { id: 'carteles', label: 'Carteles PT', icon: Tag },
   { id: 'basculas', label: 'Básculas', icon: Scale },
   { id: 'cuadre', label: 'Pedidos', icon: ClipboardList },
-  { id: 'albaranes', label: 'Albaranes Manual', icon: FileText },
+  { id: 'albaranes', label: 'Albaranes', icon: FileText },
   { id: 'preventivos', label: 'Preventivos maquinaria', icon: Wrench },
 ]
 
@@ -212,7 +212,7 @@ async function handleLogout() {
         <CartelesPT v-else-if="store.activeTab === 'carteles'" />
         <Basculas v-else-if="store.activeTab === 'basculas'" />
         <CuadrePT v-else-if="store.activeTab === 'cuadre'" />
-        <AlbaranesManual v-else-if="store.activeTab === 'albaranes'" />
+        <Albaranes v-else-if="store.activeTab === 'albaranes'" />
         <Preventivos v-else-if="store.activeTab === 'preventivos'" />
       </keep-alive>
     </main>

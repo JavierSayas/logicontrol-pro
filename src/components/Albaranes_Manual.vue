@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { FileText, Printer } from 'lucide-vue-next'
 import Button from './ui/Button.vue'
 import PageHeader from './ui/PageHeader.vue'
@@ -30,14 +30,15 @@ const nombreEmpresa     = ref('')
 const matriculaCamion   = ref('')
 const matriculaRemolque = ref('')
 
-const fmtFecha = (iso) => {
-  if (!iso) return ''
-  const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 function imprimir() {
-  window.print()
+  const styleEl = document.createElement('style')
+  styleEl.id = 'albaran-print-orient'
+  styleEl.textContent = '@page { size: A4 portrait; margin: 10mm; }'
+  document.head.appendChild(styleEl)
+  setTimeout(() => {
+    window.print()
+    setTimeout(() => styleEl.remove(), 100)
+  }, 50)
 }
 </script>
 
@@ -48,8 +49,8 @@ function imprimir() {
         caption="Documentación"
         :caption-icon="FileText"
         theme="slate"
-        title="Albaranes Manual"
-        subtitle="Rellenar y imprimir albarán"
+        title="Albarán Manual"
+        subtitle="Rellenar y imprimir albarán Surexport"
       >
         <template #actions>
           <Button @click="imprimir">
@@ -60,10 +61,8 @@ function imprimir() {
       </PageHeader>
     </div>
 
-    <!-- ALBARÁN -->
     <div class="albaran-paper bg-white border border-slate-300 shadow-sm mx-auto" style="max-width: 820px; padding: 20px;">
 
-      <!-- HEAD -->
       <div class="flex items-start justify-between mb-4">
         <div class="flex items-center" style="width: 50%;">
           <img src="/logo-surexport.png" alt="Surexport Levante" style="max-width: 280px; max-height: 90px;" />
@@ -77,7 +76,6 @@ function imprimir() {
         </div>
       </div>
 
-      <!-- LUGAR DE ENTREGA + DATOS -->
       <div class="flex gap-4 mb-3">
         <div style="width: 50%;">
           <div class="text-xs font-semibold mb-1">Lugar de entrega:</div>
@@ -107,7 +105,6 @@ function imprimir() {
         </div>
       </div>
 
-      <!-- DETALLE PRODUCTO -->
       <table class="w-full border-collapse text-xs mb-4">
         <thead>
           <tr class="bg-slate-200">
@@ -146,7 +143,6 @@ function imprimir() {
         </tbody>
       </table>
 
-      <!-- DATOS PRECINTO + SELLO -->
       <div class="flex gap-4 mb-4">
         <table class="border-collapse text-xs" style="width: 55%;">
           <tbody>
@@ -178,7 +174,6 @@ function imprimir() {
         </div>
       </div>
 
-      <!-- DISCLAIMER + FIRMAS Y CONDUCTOR -->
       <div class="flex gap-3">
         <div class="flex flex-col" style="width: 50%;">
           <div class="border border-slate-400 px-3 py-2 text-xs text-center font-semibold mb-2">
@@ -249,10 +244,6 @@ function imprimir() {
   }
   .no-print {
     display: none !important;
-  }
-  @page {
-    size: A4 portrait;
-    margin: 10mm;
   }
 }
 </style>
