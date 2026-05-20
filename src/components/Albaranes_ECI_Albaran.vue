@@ -322,11 +322,12 @@ function imprimir() {
             <input v-model="matriculaCamion" type="text" class="w-40 bg-slate-100 border border-slate-400 px-2 py-1 outline-none focus:bg-yellow-50" />
           </div>
           <div class="flex items-center gap-2 pt-1">
-            <span class="font-bold w-44">DTO. LOGÍSTICO :</span>
-            <div class="flex items-center gap-1">
+            <span class="font-bold w-44 print-input">DTO. LOGÍSTICO :</span>
+            <div class="flex items-center gap-1 print-input">
               <input v-model="dtoLogPct" type="number" step="0.01" class="w-20 border border-slate-400 px-2 py-1 text-right outline-none focus:bg-yellow-50" />
               <span class="font-semibold">%</span>
             </div>
+            <span class="font-bold print-only">DTO. LOGÍSTICO : {{ dtoLogPct }}%</span>
           </div>
         </div>
 
@@ -334,9 +335,10 @@ function imprimir() {
           <div class="border border-slate-500 px-2 py-1 text-center font-bold">TOTAL BULTOS</div>
           <div class="border border-slate-500 px-2 py-1 text-center font-bold">{{ totalBultos }}</div>
           <div class="flex items-center gap-2 mt-2">
-            <span class="font-bold">IVA :</span>
-            <input v-model="ivaPct" type="number" step="0.01" class="w-16 border border-slate-400 px-2 py-1 text-right outline-none focus:bg-yellow-50" />
-            <span class="font-semibold">%</span>
+            <span class="font-bold print-input">IVA :</span>
+            <input v-model="ivaPct" type="number" step="0.01" class="w-16 border border-slate-400 px-2 py-1 text-right outline-none focus:bg-yellow-50 print-input" />
+            <span class="font-semibold print-input">%</span>
+            <span class="font-bold print-only">IVA : {{ ivaPct }}%</span>
             <span class="ml-auto">{{ fmtMoney(ivaImporte) }}</span>
           </div>
         </div>
