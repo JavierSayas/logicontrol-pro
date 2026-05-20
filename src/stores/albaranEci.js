@@ -80,18 +80,53 @@ function crearAlbaran(overrides = {}) {
   }
 }
 
+const STORAGE_KEY = 'logicontrol_albaran_eci_settings_v1'
+
+const CAMPOS_PERSISTIDOS = [
+  'proveedorNum',
+  'razonSocial',
+  'cliente',
+  'sucDpto',
+  'lugarEntrega',
+  'dtoLogPct',
+  'ivaPct',
+]
+
+function cargarSettings() {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function guardarSettings(state) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const datos = {}
+    for (const k of CAMPOS_PERSISTIDOS) datos[k] = state[k]
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(datos))
+  } catch {
+    /* noop */
+  }
+}
+
+const _settings = cargarSettings()
+
 export const useAlbaranEciStore = defineStore('albaranEci', {
   state: () => ({
-    proveedorNum: '21531',
-    razonSocial: 'B87635672  SUREXPORT LEVANTE S.L.U',
-    cliente: 'EL CORTE INGLÉS, S.A.',
-    sucDpto: '050/181',
-    fechaEntrega: '',
-    lugarEntrega: 'CEPA / MERCAMADRID',
-    tempSalida: '',
+    proveedorNum:    _settings.proveedorNum    ?? '21531',
+    razonSocial:     _settings.razonSocial     ?? 'B87635672  SUREXPORT LEVANTE S.L.U',
+    cliente:         _settings.cliente         ?? 'EL CORTE INGLÉS, S.A.',
+    sucDpto:         _settings.sucDpto         ?? '050/181',
+    fechaEntrega:    '',
+    lugarEntrega:    _settings.lugarEntrega    ?? 'CEPA / MERCAMADRID',
+    tempSalida:      '',
     matriculaCamion: '',
-    dtoLogPct: 9,
-    ivaPct: 4,
+    dtoLogPct:       _settings.dtoLogPct       ?? 9.4,
+    ivaPct:          _settings.ivaPct          ?? 4,
     filasPegadas: [],
     albaranes: [crearAlbaran()],
     activeIndex: 0,
@@ -167,3 +202,15 @@ export const useAlbaranEciStore = defineStore('albaranEci', {
     },
   },
 })
+
+let _persistenciaActivada = false
+
+export function setupAlbaranEciPersistence(pinia) {
+  if (_persistenciaActivada) return
+  _persistenciaActivada = true
+  const store = useAlbaranEciStore(pinia)
+  store.$subscribe((_mutation, state) => {
+    guardarSettings(state)
+  })
+}
+

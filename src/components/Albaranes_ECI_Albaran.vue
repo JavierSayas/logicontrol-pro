@@ -145,67 +145,72 @@ function imprimir() {
 
       <div class="text-center font-extrabold tracking-wider mb-3" style="font-size: 22px;">ALBARÁN</div>
 
-      <table class="w-full border-collapse text-xs mb-3">
-        <tbody>
-          <tr>
-            <td class="px-2 py-1 font-bold whitespace-nowrap" style="width: 12%;">PROVEEDOR : Nº</td>
-            <td class="p-0" style="width: 28%;">
-              <input v-model="proveedorNum" type="text" class="w-full px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs" />
-            </td>
-            <td class="px-2 py-1" style="width: 20%;"></td>
-            <td class="px-2 py-1 font-bold text-right" style="width: 40%;">
-              <input v-model="cliente" type="text" class="w-full px-2 py-1 text-right outline-none focus:bg-yellow-50 text-xs font-bold" />
-            </td>
-          </tr>
-          <tr>
-            <td class="px-2 py-1 font-bold whitespace-nowrap">RAZÓN SOCIAL</td>
-            <td class="p-0" colspan="2">
-              <input v-model="razonSocial" type="text" class="w-full px-2 py-1 outline-none focus:bg-yellow-50 text-xs" />
-            </td>
-            <td class="px-2 py-1 font-bold">
-              <div class="flex items-center gap-2">
-                <span class="whitespace-nowrap">SUC./DPTO. :</span>
-                <input v-model="sucDpto" type="text" class="flex-1 px-2 py-1 outline-none focus:bg-yellow-50 text-xs text-right" />
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="px-2 py-1 font-bold whitespace-nowrap">Nº PEDIDO :</td>
-            <td class="p-0">
-              <div class="flex">
-                <input v-model="albaranActivo.numPedido" type="text" class="w-1/2 px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs" />
-                <input v-model="albaranActivo.numPedido2" type="text" class="w-1/2 px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs" />
-              </div>
-            </td>
-            <td class="px-2 py-1"></td>
-            <td class="px-2 py-1 font-bold">
-              <div class="flex items-center gap-2">
-                <span class="whitespace-nowrap">FECHA ENTREGA :</span>
-                <input v-model="fechaEntrega" type="date" class="flex-1 px-2 py-1 outline-none focus:bg-yellow-50 text-xs" />
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="space-y-1.5 text-xs mb-3">
+        <div class="grid grid-cols-2 gap-x-8">
+          <div class="flex items-center gap-2">
+            <span class="font-bold whitespace-nowrap eci-label-left">PROVEEDOR : Nº</span>
+            <input v-model="proveedorNum" type="text" class="eci-input flex-1" />
+          </div>
+          <div class="flex items-center">
+            <input v-model="cliente" type="text" class="eci-input w-full text-right font-bold" />
+          </div>
+        </div>
 
-      <table class="w-full border-collapse text-xs mb-3">
-        <tbody>
-          <tr>
-            <td class="px-2 py-1 font-bold text-right whitespace-nowrap" style="width: 14%;">nº DE ALBARÁN</td>
-            <td class="p-0 border border-slate-400" :class="albaranActivo.errorAlbaran ? 'ring-2 ring-red-500 bg-red-50' : ''" :title="albaranActivo.errorAlbaran ? 'Hay más de 2 nº de albarán (Entrega) distintos en este pedido — revísalo' : ''" style="width: 16%;">
-              <input v-model="albaranActivo.numAlbaran" type="text" class="w-full px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs" />
-            </td>
-            <td class="px-2 py-1 font-bold text-right whitespace-nowrap" style="width: 14%;">Nº TRANSPORTE</td>
-            <td class="p-0 border border-slate-400" :class="albaranActivo.errorTransporte ? 'ring-2 ring-red-500 bg-red-50' : ''" :title="albaranActivo.errorTransporte ? 'Hay más de 2 nº de transporte distintos en este pedido — revísalo' : ''" style="width: 16%;">
-              <input v-model="albaranActivo.numTransporte" type="text" class="w-full px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs" />
-            </td>
-            <td class="px-2 py-1 font-bold text-right whitespace-nowrap" style="width: 16%;">LUGAR DE ENTREGA :</td>
-            <td class="p-0 border border-slate-400" style="width: 24%;">
-              <input v-model="lugarEntrega" type="text" class="w-full px-2 py-1 text-center outline-none focus:bg-yellow-50 text-xs font-bold" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <div class="grid grid-cols-2 gap-x-8">
+          <div class="flex items-center gap-2">
+            <span class="font-bold whitespace-nowrap eci-label-left">RAZÓN SOCIAL</span>
+            <input v-model="razonSocial" type="text" class="eci-input flex-1" />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold whitespace-nowrap eci-label-right">SUC./DPTO. :</span>
+            <input v-model="sucDpto" type="text" class="eci-input flex-1 text-right" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-x-8">
+          <div class="flex items-center gap-2">
+            <span class="font-bold whitespace-nowrap eci-label-left">Nº PEDIDO :</span>
+            <input v-model="albaranActivo.numPedido" type="text" class="eci-input w-28 text-center" />
+            <input v-model="albaranActivo.numPedido2" type="text" class="eci-input w-28 text-center" />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold whitespace-nowrap eci-label-right">FECHA ENTREGA :</span>
+            <input v-model="fechaEntrega" type="date" class="eci-input w-32" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-xs mb-4">
+        <div class="flex items-start gap-2">
+          <span class="font-bold whitespace-nowrap pt-1">nº DE ALBARÁN</span>
+          <div
+            class="flex-1"
+            :class="albaranActivo.errorAlbaran ? 'ring-2 ring-red-500 rounded' : ''"
+            :title="albaranActivo.errorAlbaran ? 'Hay más de 2 nº de albarán (Entrega) distintos en este pedido — revísalo' : ''"
+          >
+            <input v-model="albaranActivo.numAlbaran" type="text" class="eci-input-box print-input w-full text-center" />
+            <div class="eci-print-cell print-only">{{ albaranActivo.numAlbaran }}</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="font-bold whitespace-nowrap pt-1">Nº TRANSPORTE</span>
+          <div
+            class="flex-1"
+            :class="albaranActivo.errorTransporte ? 'ring-2 ring-red-500 rounded' : ''"
+            :title="albaranActivo.errorTransporte ? 'Hay más de 2 nº de transporte distintos en este pedido — revísalo' : ''"
+          >
+            <input v-model="albaranActivo.numTransporte" type="text" class="eci-input-box print-input w-full text-center" />
+            <div class="eci-print-cell print-only">{{ albaranActivo.numTransporte }}</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="font-bold whitespace-nowrap pt-1">LUGAR DE ENTREGA :</span>
+          <div class="flex-1">
+            <input v-model="lugarEntrega" type="text" class="eci-input-box print-input w-full text-center font-bold" />
+            <div class="eci-print-cell print-only font-bold">{{ lugarEntrega }}</div>
+          </div>
+        </div>
+      </div>
 
       <div class="eci-table-scroll">
         <table class="w-full border-collapse text-[10px] mb-3 eci-table">
@@ -239,7 +244,10 @@ function imprimir() {
           <tbody>
             <tr v-for="(f, i) in filas" :key="i">
               <td class="border border-slate-400 p-0"><input v-model="f.refEci" type="text" class="w-full px-1 py-1 outline-none focus:bg-yellow-50 text-[10px]" /></td>
-              <td class="border border-slate-400 p-0"><input v-model="f.articulo" type="text" class="w-full px-1 py-1 outline-none focus:bg-yellow-50 text-[10px]" /></td>
+              <td class="border border-slate-400 p-0">
+                <input v-model="f.articulo" type="text" class="print-input w-full px-1 py-1 outline-none focus:bg-yellow-50 text-[10px]" />
+                <div class="print-only px-1 py-1 text-[9px] leading-tight whitespace-normal break-words">{{ f.articulo }}</div>
+              </td>
               <td class="border border-slate-400 p-0"><input v-model="f.origen" type="text" class="w-full px-1 py-1 outline-none focus:bg-yellow-50 text-[10px]" /></td>
               <td class="border border-slate-400 p-0">
                 <select v-model="f.canarias" class="w-full px-1 py-1 outline-none focus:bg-yellow-50 text-[10px] bg-white">
@@ -363,6 +371,55 @@ function imprimir() {
 </template>
 
 <style>
+.print-only { display: none; }
+.eci-print-cell {
+  border: 1px solid #94a3b8;
+  padding: 4px 8px;
+  font-size: 11px;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+  min-height: 22px;
+  background: white;
+}
+@media print {
+  .print-input { display: none !important; }
+  .print-only { display: block !important; }
+}
+
+.eci-label-left {
+  min-width: 110px;
+  display: inline-block;
+}
+.eci-label-right {
+  min-width: 120px;
+  display: inline-block;
+}
+.eci-input {
+  border: 0;
+  border-bottom: 1px solid #94a3b8;
+  padding: 4px 8px;
+  outline: none;
+  font-size: 11px;
+  background: transparent;
+}
+.eci-input:focus {
+  background: #fefce8;
+  border-bottom-color: #f59e0b;
+}
+.eci-input-box {
+  border: 1px solid #94a3b8;
+  padding: 4px 8px;
+  outline: none;
+  font-size: 11px;
+  background: white;
+}
+.eci-input-box:focus {
+  background: #fefce8;
+  border-color: #f59e0b;
+}
+
 .eci-table-scroll {
   overflow-x: auto;
 }
