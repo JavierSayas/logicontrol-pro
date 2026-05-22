@@ -9,7 +9,7 @@ import { useAlbaranEciStore } from '../stores/albaranEci'
 const eciStore = useAlbaranEciStore()
 const { filasPegadas, albaranes } = storeToRefs(eciStore)
 
-const emit = defineEmits(['ir-albaran'])
+const emit = defineEmits(['ir-formulario'])
 
 const columnas = [
   { key: 'salida',     label: 'Salida' },
@@ -103,7 +103,11 @@ function eliminarFila(i) {
 
 function irAAlbaran(i) {
   eciStore.setActive(i)
-  emit('ir-albaran')
+  emit('ir-formulario')
+}
+
+function continuarAFormulario() {
+  emit('ir-formulario')
 }
 
 const hayDatos = computed(() => filas.value.length > 0)
@@ -158,7 +162,7 @@ const hayAlgunError = computed(() => albaranes.value.some(a => a.errorTransporte
               <component :is="(alb.errorTransporte || alb.errorAlbaran) ? TriangleAlert : Check" class="w-4 h-4" />
               Albarán {{ i + 1 }}
             </div>
-            <button @click="irAAlbaran(i)" class="text-[11px] underline text-slate-600 hover:text-slate-900">Ver →</button>
+            <button @click="irAAlbaran(i)" class="text-[11px] underline text-slate-600 hover:text-slate-900">Abrir →</button>
           </div>
           <div class="space-y-1 text-slate-800">
             <div>
@@ -230,6 +234,19 @@ const hayAlgunError = computed(() => albaranes.value.some(a => a.errorTransporte
       @paste="handlePaste"
     >
       Pega aquí para reemplazar los datos
+    </div>
+
+    <div
+      v-if="hayDatos"
+      class="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3"
+    >
+      <div class="text-sm text-emerald-900">
+        <span class="font-semibold">Listo.</span>
+        {{ albaranes.length }} albarán{{ albaranes.length === 1 ? '' : 'es' }} preparado{{ albaranes.length === 1 ? '' : 's' }}. Continúa al formulario para añadir productos y completar los datos manuales.
+      </div>
+      <Button @click="continuarAFormulario">
+        Ir al formulario →
+      </Button>
     </div>
 
     <transition name="fade">

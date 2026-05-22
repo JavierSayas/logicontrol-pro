@@ -1,15 +1,17 @@
 <script setup>
 import { ref } from 'vue'
-import { Receipt, ClipboardPaste } from 'lucide-vue-next'
+import { ClipboardList, Eye, ClipboardPaste } from 'lucide-vue-next'
+import Albaranes_ECI_Formulario from './Albaranes_ECI_Formulario.vue'
 import Albaranes_ECI_Albaran from './Albaranes_ECI_Albaran.vue'
 import Albaranes_ECI_Pegar from './Albaranes_ECI_Pegar.vue'
 
 const subsubtabs = [
-  { id: 'albaran', label: 'Albarán',     icon: Receipt },
-  { id: 'pegar',   label: 'Pegar datos', icon: ClipboardPaste },
+  { id: 'pegar',       label: '1. Pegar datos',  icon: ClipboardPaste },
+  { id: 'formulario',  label: '2. Formulario',   icon: ClipboardList },
+  { id: 'vistaPrevia', label: '3. Vista previa', icon: Eye },
 ]
 
-const activeSubsubtab = ref('albaran')
+const activeSubsubtab = ref('pegar')
 </script>
 
 <template>
@@ -31,7 +33,8 @@ const activeSubsubtab = ref('albaran')
       </button>
     </div>
 
-    <Albaranes_ECI_Albaran v-if="activeSubsubtab === 'albaran'" />
-    <Albaranes_ECI_Pegar v-else-if="activeSubsubtab === 'pegar'" @ir-albaran="activeSubsubtab = 'albaran'" />
+    <Albaranes_ECI_Pegar v-if="activeSubsubtab === 'pegar'" @ir-formulario="activeSubsubtab = 'formulario'" />
+    <Albaranes_ECI_Formulario v-else-if="activeSubsubtab === 'formulario'" @ir-vista-previa="activeSubsubtab = 'vistaPrevia'" />
+    <Albaranes_ECI_Albaran v-else-if="activeSubsubtab === 'vistaPrevia'" />
   </div>
 </template>

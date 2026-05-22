@@ -8,13 +8,15 @@ import { useAlbaranEciStore } from '../stores/albaranEci'
 
 const eciStore = useAlbaranEciStore()
 const {
-  proveedorNum, razonSocial, cliente, sucDpto, fechaEntrega, lugarEntrega,
+  proveedorNum, razonSocial, cliente, sucDpto, lugarEntrega,
   tempSalida, matriculaCamion, dtoLogPct, ivaPct,
   albaranes, activeIndex,
 } = storeToRefs(eciStore)
 
 const albaranActivo = computed(() => eciStore.albaranActivo)
 const filas = computed(() => albaranActivo.value.filas)
+const FILAS_TABLA_MIN = 9
+const filasPadding = computed(() => Math.max(0, FILAS_TABLA_MIN - filas.value.length))
 
 function num(v) {
   if (v === '' || v === null || v === undefined) return 0
@@ -143,7 +145,7 @@ function imprimir() {
 
     <div class="albaran-eci-paper bg-white border border-slate-300 shadow-sm mx-auto" style="padding: 14px;">
 
-      <div class="text-center font-extrabold tracking-wider mb-3" style="font-size: 22px;">ALBARÁN</div>
+      <div class="eci-title-albaran text-center font-extrabold tracking-wider mb-3" style="font-size: 22px;">ALBARÁN</div>
 
       <div class="space-y-1.5 text-xs mb-3">
         <div class="grid grid-cols-2 gap-x-8">
@@ -161,9 +163,9 @@ function imprimir() {
             <span class="font-bold whitespace-nowrap eci-label-left">RAZÓN SOCIAL</span>
             <input v-model="razonSocial" type="text" class="eci-input flex-1" />
           </div>
-          <div class="flex items-center gap-2">
-            <span class="font-bold whitespace-nowrap eci-label-right">SUC./DPTO. :</span>
-            <input v-model="sucDpto" type="text" class="eci-input flex-1 text-right" />
+          <div class="flex items-center gap-2 justify-end">
+            <span class="font-bold whitespace-nowrap">SUC./DPTO. :</span>
+            <input v-model="sucDpto" type="text" class="eci-input w-32 text-right" />
           </div>
         </div>
 
@@ -172,9 +174,9 @@ function imprimir() {
             <span class="font-bold whitespace-nowrap eci-label-left">Nº PEDIDO :</span>
             <input v-model="albaranActivo.numPedido" type="text" class="eci-input flex-1" />
           </div>
-          <div class="flex items-center gap-2">
-            <span class="font-bold whitespace-nowrap eci-label-right">FECHA ENTREGA :</span>
-            <input v-model="fechaEntrega" type="date" class="eci-input w-32" />
+          <div class="flex items-center gap-2 justify-end">
+            <span class="font-bold whitespace-nowrap">FECHA ENTREGA :</span>
+            <input v-model="albaranActivo.fechaEntrega" type="date" class="eci-input w-36" />
           </div>
         </div>
       </div>
@@ -304,6 +306,10 @@ function imprimir() {
                 </button>
               </td>
             </tr>
+            <tr v-for="i in filasPadding" :key="`pad-${i}`">
+              <td v-for="n in 19" :key="n" class="border border-slate-400 px-1 py-1">&nbsp;</td>
+              <td class="no-print border border-slate-400 p-0"></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -399,11 +405,14 @@ function imprimir() {
 }
 .eci-input {
   border: 0;
-  border-bottom: 1px solid #94a3b8;
+  border-bottom: 1px solid transparent;
   padding: 4px 8px;
   outline: none;
   font-size: 11px;
   background: transparent;
+}
+.eci-input:hover {
+  border-bottom-color: #cbd5e1;
 }
 .eci-input:focus {
   background: #fefce8;
@@ -451,6 +460,10 @@ function imprimir() {
     border: none !important;
     box-shadow: none !important;
     padding: 8mm !important;
+    font-size: 10px;
+  }
+  .albaran-eci-paper .eci-title-albaran {
+    font-size: 22px !important;
   }
   .no-print {
     display: none !important;
@@ -461,6 +474,14 @@ function imprimir() {
   .eci-table {
     min-width: 0 !important;
     width: 100% !important;
+    font-size: 9px !important;
+  }
+  .albaran-eci-paper input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
   }
 }
 </style>

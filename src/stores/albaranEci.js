@@ -61,7 +61,6 @@ function filasSeed() {
       tipo: 'uds',
       precio: 3.2,
     }),
-    ...Array.from({ length: 8 }, () => crearFila()),
   ]
 }
 
@@ -70,6 +69,7 @@ function crearAlbaran(overrides = {}) {
     numPedido: '',
     numTransporte: '',
     numAlbaran: '0',
+    fechaEntrega: '',
     filas: filasSeed(),
     valoresTransporte: [],
     valoresAlbaran: [],
@@ -77,6 +77,19 @@ function crearAlbaran(overrides = {}) {
     errorAlbaran: false,
     ...overrides,
   }
+}
+
+function parseFechaEci(s) {
+  if (!s) return ''
+  const trimmed = String(s).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+  const m = trimmed.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/)
+  if (m) {
+    let [, d, mo, y] = m
+    if (y.length === 2) y = '20' + y
+    return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  return ''
 }
 
 const STORAGE_KEY = 'logicontrol_albaran_eci_settings_v1'
@@ -89,13 +102,19 @@ const CAMPOS_PERSISTIDOS = [
   'lugarEntrega',
   'dtoLogPct',
   'ivaPct',
+  'productosCustom',
 ]
 
 function cargarSettings() {
   if (typeof localStorage === 'undefined') return {}
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
+    if (!raw) return {}
+    const settings = JSON.parse(raw)
+    if (settings.razonSocial === 'B87635672  SUREXPORT LEVANTE S.L.U') {
+      delete settings.razonSocial
+    }
+    return settings
   } catch {
     return {}
   }
@@ -117,15 +136,15 @@ const _settings = cargarSettings()
 export const useAlbaranEciStore = defineStore('albaranEci', {
   state: () => ({
     proveedorNum:    _settings.proveedorNum    ?? '21531',
-    razonSocial:     _settings.razonSocial     ?? 'B87635672  SUREXPORT LEVANTE S.L.U',
+    razonSocial:     _settings.razonSocial     ?? 'CIF A82767120 DEL MONTE FRESH PRODUCE SPAIN S.A.U',
     cliente:         _settings.cliente         ?? 'EL CORTE INGLÉS, S.A.',
     sucDpto:         _settings.sucDpto         ?? '050/181',
-    fechaEntrega:    '',
     lugarEntrega:    _settings.lugarEntrega    ?? 'CEPA / MERCAMADRID',
     tempSalida:      '',
     matriculaCamion: '',
     dtoLogPct:       _settings.dtoLogPct       ?? 9.4,
     ivaPct:          _settings.ivaPct          ?? 4,
+    productosCustom: _settings.productosCustom ?? [],
     filasPegadas: [],
     albaranes: [crearAlbaran()],
     activeIndex: 0,
@@ -154,13 +173,16 @@ export const useAlbaranEciStore = defineStore('albaranEci', {
       for (const pedido of orden) {
         const filasGrupo = grupos.get(pedido)
         const transportes = unicos(filasGrupo.map(f => f.tpte))
-        const albaranesEntrega = unicos(filasGrupo.map(f => f.entrega))
+        const albaranesEntrega = unicos(filasGrupo.map(f => f.nEntrega))
+        const fechas = unicos(filasGrupo.map(f => f.entrega))
+        const fechaIso = parseFechaEci(fechas[0] || '')
         const errorTransporte = transportes.length > 2
 
         nuevos.push(crearAlbaran({
           numPedido: pedido === '__sin_pedido__' ? '' : pedido,
           numTransporte: errorTransporte ? '' : transportes.join('/'),
           numAlbaran: albaranesEntrega.join('/') || '0',
+          fechaEntrega: fechaIso,
           valoresTransporte: transportes,
           valoresAlbaran: albaranesEntrega,
           errorTransporte,
@@ -194,10 +216,38 @@ export const useAlbaranEciStore = defineStore('albaranEci', {
     addFilaActivo() {
       this.albaranes[this.activeIndex].filas.push(crearFila())
     },
+    addProductoCatalogo(producto) {
+      if (!producto) return
+      this.albaranes[this.activeIndex].filas.push(crearFila({
+        refEci:    producto.refEci,
+        articulo:  producto.articulo,
+        origen:    producto.origen,
+        canarias:  producto.canarias,
+        variedad:  producto.variedad,
+        categoria: producto.categoria,
+        calibre:   producto.calibre,
+        oferta:    producto.oferta ?? '',
+        udsCaja:   producto.udsCaja,
+        tipo:      producto.tipo,
+        precio:    producto.precio,
+      }))
+    },
     removeFilaActivo(i) {
       const a = this.albaranes[this.activeIndex]
-      if (a.filas.length <= 1) return
       a.filas.splice(i, 1)
+    },
+    addProductoCustom(producto) {
+      if (!producto || !producto.refEci) return
+      const existe = this.productosCustom.findIndex(p => p.refEci === producto.refEci)
+      if (existe >= 0) {
+        this.productosCustom.splice(existe, 1, { ...producto })
+      } else {
+        this.productosCustom.push({ ...producto })
+      }
+    },
+    removeProductoCustom(refEci) {
+      const i = this.productosCustom.findIndex(p => p.refEci === refEci)
+      if (i >= 0) this.productosCustom.splice(i, 1)
     },
   },
 })
