@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useLogisticsStore } from '../stores/logistics';
 import { supabaseOrigen } from '../lib/supabase';
-import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle, Save } from 'lucide-vue-next';
+import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Card from './ui/Card.vue';
@@ -80,7 +80,6 @@ async function addTransportistasPages(doc, datosParaPDF) {
 
 const store = useLogisticsStore();
 const error = ref('');
-const filtroRuta = ref(null);
 const toast = ref(null);
 const toastType = ref('success');
 
@@ -119,10 +118,20 @@ function showToast(message, type = 'success') {
   }, 3500);
 }
 
+const CAJAS_POR_HUECO_LIDL = 96;
+
+function esPlataformaLidl(nombreDestino) {
+  return String(nombreDestino || '').trim().toUpperCase().startsWith('LIDL');
+}
+
+function calcularHuecosLidl(cantidad) {
+  const n = parseFloat(String(cantidad ?? '').replace(',', '.')) || 0;
+  return String(Math.max(1, Math.ceil(n / CAJAS_POR_HUECO_LIDL)));
+}
+
 function handlePaste(event) {
   event.preventDefault();
   error.value = '';
-  filtroRuta.value = null;
 
   const texto = event.clipboardData.getData('text');
   const lineas = texto.trim().split(/[\r\n]+/).filter(l => l.trim());
@@ -149,7 +158,9 @@ function handlePaste(event) {
       }
     });
 
-    fila.huecos = '';
+    fila.huecos = esPlataformaLidl(fila.nombreDestino)
+      ? calcularHuecosLidl(fila.cantidadPedido)
+      : '';
 
     if (Object.values(fila).some(v => v !== '')) {
       filas.push(fila);
@@ -169,7 +180,6 @@ function handlePaste(event) {
 
 function limpiar() {
   error.value = '';
-  filtroRuta.value = null;
   store.setOrdenCarga([]);
   showToast('Carga limpiada', 'success');
 }
@@ -177,53 +187,12 @@ function limpiar() {
 const filas = computed(() => store.ordenCargaData);
 const hayDatos = computed(() => filas.value.length > 0);
 
-const filasVisibles = computed(() => {
-  if (!filtroRuta.value) return filas.value;
-  if (filtroRuta.value === 'DHL001') return filas.value.filter(f => f.ruta === 'DHL001');
-  if (filtroRuta.value === 'INNOVA') return filas.value.filter(f => rutasINNOVA.includes(f.ruta));
-  if (filtroRuta.value === 'MOSCA') return filas.value.filter(f => rutasMOSCA.includes(f.ruta));
-  return filas.value;
-});
-
-const normalizarFecha = (fecha) => {
-  if (!fecha) return '';
-
-  const partes = fecha.match(/(\d{4})-(\d{2})-(\d{2})|(\d{2})\/(\d{2})\/(\d{4})|(\d{1,2})-(\d{1,2})-(\d{4})/);
-  if (!partes) return fecha;
-
-  if (partes[1]) {
-    return `${partes[1]}-${partes[2]}-${partes[3]}`;
-  } else if (partes[4]) {
-    const [, dia, mes, year] = partes;
-    return `${year}-${mes}-${dia}`;
-  } else if (partes[7]) {
-    const [, , , , , , , dia, mes, year] = partes;
-    return `${year}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-  }
-
-  return fecha;
-};
-
 const filasParaPDF = computed(() => {
-  return filas.value.filter(f => {
-    const esRutaDHL = f.ruta === 'DHL001';
-    const fechaSalida = f.salidaMercancias || '';
-
-    const partesFecha = fechaSalida.match(/(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})/);
-    let fechaFormato = '';
-    if (partesFecha) {
-      const [, dia, mes, year] = partesFecha;
-      fechaFormato = `${year}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-    }
-
-    const fechaCoincide = fechaFormato === store.fecha;
-
-    return esRutaDHL && fechaCoincide;
-  });
+  return filas.value.filter(f => f.ruta === 'DHL001');
 });
 
 const totalCantidad = computed(() =>
-  filasVisibles.value.reduce((sum, f) => sum + (parseFloat(f.cantidadPedido) || 0), 0)
+  filas.value.reduce((sum, f) => sum + (parseFloat(f.cantidadPedido) || 0), 0)
 );
 
 const cantidadDHL = computed(() => {
@@ -347,28 +316,12 @@ async function generarPDF() {
   }
 }
 
-function filtrarPorDHL() {
-  filtroRuta.value = 'DHL001';
-}
-
-function filtrarPorINNOVA() {
-  filtroRuta.value = 'INNOVA';
-}
-
-function filtrarPorMOSCA() {
-  filtroRuta.value = 'MOSCA';
-}
-
-function limpiarFiltro() {
-  filtroRuta.value = null;
-}
-
 function handleHuecosKeydown(event, rowIdx) {
   if (event.key === 'Enter') {
     event.preventDefault();
 
     const nextRowIdx = rowIdx + 1;
-    if (nextRowIdx < filasVisibles.value.length) {
+    if (nextRowIdx < filas.value.length) {
       setTimeout(() => {
         const inputs = document.querySelectorAll('input[data-huecos-input]');
         if (inputs[nextRowIdx]) {
@@ -387,14 +340,30 @@ async function guardarOrden(tipoCarga = 'DHL001') {
     if (resultado.success) {
       showToast(`Orden ${tipoCarga} guardada correctamente`, 'success');
       await store.cargarOrdenesCarga();
+      return true;
     } else {
       error.value = `Error al guardar: ${resultado.error}`;
       showToast(`Error: ${resultado.error}`, 'error');
+      return false;
     }
   } catch (err) {
     error.value = `Error: ${err.message}`;
     showToast(`Error al guardar orden: ${err.message}`, 'error');
+    return false;
   }
+}
+
+async function guardarYDescargarPDF(tipo) {
+  const generadores = {
+    'DHL001': generarPDF,
+    'INNOVA': generarPDFInnnova,
+    'MOSCA': generarPDFMosca,
+  };
+  const generar = generadores[tipo];
+  if (!generar) return;
+
+  const ok = await guardarOrden(tipo);
+  if (ok) await generar();
 }
 
 async function generarPDFInnnova() {
@@ -623,89 +592,17 @@ async function generarPDFMosca() {
     >
       <template #actions>
         <div class="flex items-center gap-2 flex-wrap justify-end">
-          <button
-            v-if="hayDatos && !filtroRuta"
-            @click="filtrarPorDHL"
-            :disabled="cantidadDHL === 0"
-            :class="[
-              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
-              cantidadDHL > 0
-                ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
-            ]"
-          >
-            DHL001 · {{ cantidadDHL }}
-          </button>
-          <button
-            v-if="hayDatos && !filtroRuta"
-            @click="filtrarPorINNOVA"
-            :disabled="cantidadINNOVA === 0"
-            :class="[
-              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
-              cantidadINNOVA > 0
-                ? 'bg-violet-50 text-violet-800 hover:bg-violet-100'
-                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
-            ]"
-          >
-            INNOVA · {{ cantidadINNOVA }}
-          </button>
-          <button
-            v-if="hayDatos && !filtroRuta"
-            @click="filtrarPorMOSCA"
-            :disabled="cantidadMOSCA === 0"
-            :class="[
-              'inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors',
-              cantidadMOSCA > 0
-                ? 'bg-teal-50 text-teal-800 hover:bg-teal-100'
-                : 'bg-slate-50 text-slate-400 cursor-not-allowed'
-            ]"
-          >
-            MOSCA · {{ cantidadMOSCA }}
-          </button>
-
-          <Button
-            v-if="filtroRuta === 'DHL001'"
-            variant="success"
-            :disabled="filasParaPDF.length === 0"
-            @click="generarPDF"
-            :title="filasParaPDF.length === 0 ? `No hay datos DHL001 con fecha ${store.fecha}` : 'Descargar PDF DHL001'"
-          >
+          <Button v-if="cantidadDHL > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('DHL001')" title="Guardar orden y descargar PDF DHL001">
             <FileDown class="w-4 h-4" />
-            PDF · {{ filasParaPDF.length }}
+            PDF DHL · {{ cantidadDHL }}
           </Button>
-          <Button
-            v-if="filtroRuta === 'INNOVA'"
-            variant="success"
-            :disabled="filasParaPDFInnnova.length === 0"
-            @click="generarPDFInnnova"
-          >
+          <Button v-if="cantidadINNOVA > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('INNOVA')" title="Guardar orden y descargar PDF INNOVA">
             <FileDown class="w-4 h-4" />
-            PDF · {{ filasParaPDFInnnova.length }}
+            PDF INNOVA · {{ cantidadINNOVA }}
           </Button>
-          <Button
-            v-if="filtroRuta === 'MOSCA'"
-            variant="success"
-            :disabled="filasParaPDFMosca.length === 0"
-            @click="generarPDFMosca"
-          >
+          <Button v-if="cantidadMOSCA > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('MOSCA')" title="Guardar orden y descargar PDF MOSCA">
             <FileDown class="w-4 h-4" />
-            PDF · {{ filasParaPDFMosca.length }}
-          </Button>
-          <Button v-if="filtroRuta" variant="ghost" @click="limpiarFiltro">
-            Mostrar todo
-          </Button>
-
-          <Button v-if="hayDatos && cantidadDHL > 0" :disabled="store.loading" @click="guardarOrden('DHL001')">
-            <Save class="w-4 h-4" />
-            Guardar DHL
-          </Button>
-          <Button v-if="hayDatos && cantidadINNOVA > 0" :disabled="store.loading" @click="guardarOrden('INNOVA')">
-            <Save class="w-4 h-4" />
-            Guardar INNOVA
-          </Button>
-          <Button v-if="hayDatos && cantidadMOSCA > 0" :disabled="store.loading" @click="guardarOrden('MOSCA')">
-            <Save class="w-4 h-4" />
-            Guardar MOSCA
+            PDF MOSCA · {{ cantidadMOSCA }}
           </Button>
 
           <Button v-if="hayDatos" variant="secondary" @click="limpiar">
@@ -759,24 +656,18 @@ async function generarPDFMosca() {
 
             <template v-else>
               <tr
-                v-for="(fila, idx) in filasVisibles"
+                v-for="(fila, idx) in filas"
                 :key="idx"
                 :class="[
                   'border-t border-slate-100 transition-colors',
-                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/60 hover:bg-amber-100/50'
-                  : filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta) ? 'bg-violet-50/60 hover:bg-violet-100/50'
-                  : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/60 hover:bg-teal-100/50'
-                  : (idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-50/40 hover:bg-slate-50/80')
+                  idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-50/40 hover:bg-slate-50/80'
                 ]"
               >
                 <td :class="[
                   'sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100',
-                  filtroRuta === 'DHL001' && fila.ruta === 'DHL001' ? 'bg-amber-50/60'
-                  : filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta) ? 'bg-violet-50/60'
-                  : filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta) ? 'bg-teal-50/60'
-                  : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40')
+                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
                 ]">
-                  {{ filas.indexOf(fila) + 1 }}
+                  {{ idx + 1 }}
                 </td>
                 <td
                   v-for="col in COLUMNAS"
@@ -784,10 +675,7 @@ async function generarPDFMosca() {
                   class="px-3 py-2.5 transition-colors"
                   :class="{
                     'break-words': col.key === 'nombreDestino' || col.key === 'denominacion',
-                    'bg-amber-50/80 border-l-2 border-l-amber-400': col.key === 'huecos' && filtroRuta === 'DHL001',
-                    'bg-violet-50/80 border-l-2 border-l-violet-400': col.key === 'huecos' && filtroRuta === 'INNOVA',
-                    'bg-teal-50/80 border-l-2 border-l-teal-400': col.key === 'huecos' && filtroRuta === 'MOSCA',
-                    'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos' && !filtroRuta,
+                    'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos',
                   }"
                 >
                   <template v-if="col.editable && col.key === 'huecos'">
@@ -804,9 +692,6 @@ async function generarPDFMosca() {
                     <span :class="{
                       'font-bold text-slate-900 text-sm': col.key === 'nombreDestino',
                       'text-brand-700 font-bold text-right block': col.key === 'cantidadPedido',
-                      'text-amber-800 font-bold': col.key === 'ruta' && filtroRuta === 'DHL001' && fila.ruta === 'DHL001',
-                      'text-violet-800 font-bold': col.key === 'ruta' && filtroRuta === 'INNOVA' && rutasINNOVA.includes(fila.ruta),
-                      'text-teal-800 font-bold': col.key === 'ruta' && filtroRuta === 'MOSCA' && rutasMOSCA.includes(fila.ruta),
                       'text-slate-500 text-xs font-medium': col.key === 'salidaMercancias' || col.key === 'motivoPedido',
                       'text-slate-700 text-xs font-medium': col.key !== 'nombreDestino' && col.key !== 'cantidadPedido' && col.key !== 'salidaMercancias' && col.key !== 'motivoPedido' && col.key !== 'ruta',
                     }">
@@ -822,7 +707,7 @@ async function generarPDFMosca() {
                 </td>
                 <td v-for="col in COLUMNAS" :key="col.key" class="px-3 py-3">
                   <span v-if="col.key === 'nombreDestino'" class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-                    {{ filasVisibles.length }} posiciones
+                    {{ filas.length }} posiciones
                   </span>
                   <span v-else-if="col.key === 'cantidadPedido'" class="block text-right font-bold text-blue-300 text-base">
                     {{ totalCantidad.toLocaleString('es-ES') }}
