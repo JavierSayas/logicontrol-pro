@@ -278,7 +278,7 @@ async function cargarIncidencias() {
   try {
     let query = supabase
       .from('incidencias_maquinaria')
-      .select('id, maquina_id, reportado_por, fecha_reporte, descripcion, foto_url, estado, resuelta_at, resuelta_por, comentarios, created_at')
+      .select('id, maquina_id, reportado_por, fecha_reporte, descripcion, foto_url, estado, resuelta_at, resuelta_por, comentarios, comentarios_at, created_at')
       .order('created_at', { ascending: false })
     if (filtroEstadoIncidencias.value !== 'todas') {
       query = query.eq('estado', filtroEstadoIncidencias.value)
@@ -550,15 +550,18 @@ async function guardarComentariosIncidencia() {
   errorMsg.value = ''
   try {
     const comentariosLimpio = editIncidencia.value.comentarios.trim()
+    const ahora = new Date().toISOString()
     const { error } = await supabase
       .from('incidencias_maquinaria')
       .update({
         comentarios: comentariosLimpio || null,
+        comentarios_at: comentariosLimpio ? ahora : null,
         updated_by: auth.user?.id || null,
       })
       .eq('id', incidenciaSeleccionada.value.id)
     if (error) throw error
     incidenciaSeleccionada.value.comentarios = comentariosLimpio || null
+    incidenciaSeleccionada.value.comentarios_at = comentariosLimpio ? ahora : null
     mostrarExito('Comentario guardado')
   } catch (err) {
     mostrarError('No se pudo guardar el comentario: ' + err.message)
@@ -586,6 +589,7 @@ async function marcarIncidenciaResuelta() {
         resuelta_at: ahora,
         resuelta_por: usuarioEmail,
         comentarios: comentariosLimpio || null,
+        comentarios_at: comentariosLimpio ? ahora : null,
         updated_by: auth.user?.id || null,
       })
       .eq('id', incidenciaSeleccionada.value.id)
@@ -1384,11 +1388,21 @@ function textoFrecuencia(dias) {
           </div>
         </div>
 
-        <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-            <MessageSquare class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-            Comentarios / seguimiento
-          </label>
+        <div class="bg-slate-50/60 border border-slate-200 rounded-lg p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <MessageSquare class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+              Comentarios / seguimiento
+            </label>
+            <div
+              v-if="incidenciaSeleccionada.comentarios_at"
+              class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-full px-2.5 py-1"
+            >
+              <Clock class="w-3 h-3 text-slate-400" />
+              Última edición:
+              <span class="text-slate-900">{{ formatFechaHora(incidenciaSeleccionada.comentarios_at) }}</span>
+            </div>
+          </div>
           <textarea
             v-model="editIncidencia.comentarios"
             :readonly="incidenciaSeleccionada.estado === 'resuelta'"
@@ -1399,37 +1413,44 @@ function textoFrecuencia(dias) {
               incidenciaSeleccionada.estado === 'resuelta' ? 'bg-slate-50 cursor-default' : 'bg-white'
             ]"
           ></textarea>
-          <p class="text-[11px] text-slate-400 font-medium mt-1">
-            Los comentarios se sobreescriben con cada cambio (no se guarda historial).
-          </p>
-        </div>
-
-        <div v-if="incidenciaSeleccionada.estado === 'abierta'" class="bg-slate-50 border border-slate-100 rounded-lg px-4 py-3 text-sm font-medium text-slate-600">
-          Al marcar como resuelta se registrará por:
-          <span class="text-slate-900 font-semibold ml-1">{{ auth.user?.email || '—' }}</span>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2 justify-end pt-4 border-t border-slate-100">
-          <Button variant="ghost" @click="volverAIncidencias">Cancelar</Button>
-          <template v-if="incidenciaSeleccionada.estado === 'abierta'">
+          <div v-if="incidenciaSeleccionada.estado === 'abierta'" class="flex items-center justify-between gap-3 flex-wrap">
+            <p class="text-[11px] text-slate-400 font-medium">
+              Los comentarios se sobreescriben con cada cambio (no se guarda historial).
+            </p>
             <Button
-              variant="secondary"
+              variant="primary"
+              size="sm"
               :disabled="guardandoEdicionIncidencia"
               :loading="guardandoEdicionIncidencia"
               @click="guardarComentariosIncidencia"
             >
-              <MessageSquare class="w-4 h-4" />
+              <MessageSquare class="w-3.5 h-3.5" />
               Guardar comentario
             </Button>
-            <Button
-              :disabled="guardandoEdicionIncidencia || !auth.user?.email"
-              :loading="guardandoEdicionIncidencia"
-              @click="marcarIncidenciaResuelta"
-            >
-              <CheckCheck class="w-4 h-4" />
-              Marcar como resuelta
-            </Button>
-          </template>
+          </div>
+          <p v-else class="text-[11px] text-slate-400 font-medium">
+            Los comentarios se sobreescriben con cada cambio (no se guarda historial).
+          </p>
+        </div>
+
+        <div v-if="incidenciaSeleccionada.estado === 'abierta'" class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm font-medium text-emerald-800">
+          Al marcar como resuelta se registrará por:
+          <span class="font-bold ml-1">{{ auth.user?.email || '—' }}</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 justify-end pt-5 mt-2 border-t border-slate-200">
+          <Button variant="ghost" @click="volverAIncidencias">Cancelar</Button>
+          <Button
+            v-if="incidenciaSeleccionada.estado === 'abierta'"
+            variant="success"
+            size="lg"
+            :disabled="guardandoEdicionIncidencia || !auth.user?.email"
+            :loading="guardandoEdicionIncidencia"
+            @click="marcarIncidenciaResuelta"
+          >
+            <CheckCheck class="w-4 h-4" />
+            Marcar como resuelta
+          </Button>
           <Button
             v-else
             variant="secondary"
