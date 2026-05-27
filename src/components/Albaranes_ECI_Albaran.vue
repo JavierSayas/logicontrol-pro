@@ -15,7 +15,7 @@ const {
 
 const albaranActivo = computed(() => eciStore.albaranActivo)
 const filas = computed(() => albaranActivo.value.filas)
-const FILAS_TABLA_MIN = 9
+const FILAS_TABLA_MIN = 7
 const filasPadding = computed(() => Math.max(0, FILAS_TABLA_MIN - filas.value.length))
 
 function num(v) {
@@ -70,7 +70,7 @@ function removeFila(i) {
 function imprimir() {
   const styleEl = document.createElement('style')
   styleEl.id = 'albaran-print-orient'
-  styleEl.textContent = '@page { size: A4 landscape; margin: 8mm; }'
+  styleEl.textContent = '@page { size: A4 landscape; margin: 4mm; }'
   document.head.appendChild(styleEl)
   setTimeout(() => {
     window.print()
@@ -373,6 +373,17 @@ function imprimir() {
         <p>Correrán a cargo del proveedor todos los costes generados por el rechazo de la mercancía no susceptible de ser enviada a las Islas Canarias según la legislación vigente.</p>
       </div>
 
+      <div class="eci-firmas grid grid-cols-2 gap-4 mt-3">
+        <div class="eci-firma-box">
+          <div class="eci-firma-label">FIRMA TRANSPORTISTA</div>
+          <div class="eci-firma-area"></div>
+        </div>
+        <div class="eci-firma-box">
+          <div class="eci-firma-label">FIRMA LOGÍSTICA</div>
+          <div class="eci-firma-area"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -430,6 +441,25 @@ function imprimir() {
   border-color: #f59e0b;
 }
 
+.eci-firma-box {
+  border: 1px solid #475569;
+  display: flex;
+  flex-direction: column;
+}
+.eci-firma-label {
+  background: #f1f5f9;
+  border-bottom: 1px solid #475569;
+  text-align: center;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 3px 4px;
+}
+.eci-firma-area {
+  min-height: 70px;
+  background: white;
+}
+
 .eci-table-scroll {
   overflow-x: auto;
 }
@@ -459,11 +489,24 @@ function imprimir() {
     width: 100%;
     border: none !important;
     box-shadow: none !important;
-    padding: 8mm !important;
-    font-size: 10px;
+    padding: 3mm !important;
+    font-size: 9.5px;
   }
   .albaran-eci-paper .eci-title-albaran {
-    font-size: 22px !important;
+    font-size: 18px !important;
+    margin-bottom: 2mm !important;
+  }
+  .albaran-eci-paper .mb-3 {
+    margin-bottom: 2mm !important;
+  }
+  .albaran-eci-paper .mb-4 {
+    margin-bottom: 2mm !important;
+  }
+  .albaran-eci-paper .mb-2 {
+    margin-bottom: 1.5mm !important;
+  }
+  .albaran-eci-paper .mt-3 {
+    margin-top: 2mm !important;
   }
   .no-print {
     display: none !important;
@@ -476,12 +519,33 @@ function imprimir() {
     width: 100% !important;
     font-size: 9px !important;
   }
+  .eci-table th, .eci-table td {
+    padding: 1.5px 2px !important;
+    line-height: 1.15 !important;
+  }
   .albaran-eci-paper input {
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
     padding-left: 2px !important;
     padding-right: 2px !important;
+  }
+  .albaran-eci-paper .text-\[10px\] {
+    font-size: 8.5px !important;
+    line-height: 1.15 !important;
+  }
+  .eci-firmas {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-top: 4mm !important;
+    gap: 8mm !important;
+  }
+  .eci-firma-area {
+    min-height: 25mm !important;
+  }
+  .eci-firma-label {
+    font-size: 10px !important;
+    padding: 2px 4px !important;
   }
 }
 </style>
