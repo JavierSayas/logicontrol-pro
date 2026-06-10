@@ -127,6 +127,21 @@ function esToyota(m) {
   return (m?.proveedor || '').trim().toUpperCase() === 'TOYOTA'
 }
 
+function hoyISO() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function sumarDiasISO(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
+
 onMounted(async () => {
   await Promise.all([cargarListado(), cargarOperarios(), cargarConteoIncidencias()])
 })
@@ -209,11 +224,14 @@ async function cargarListado() {
   loadingListado.value = true
   errorMsg.value = ''
   try {
+    const hoy = hoyISO()
+    const manana = sumarDiasISO(hoy, 1)
     const [maqRes, tareasRes] = await Promise.all([
       supabase
         .from('maquinaria_logistica')
         .select('*')
-        .eq('activo', true)
+        .or(`fecha_alta.is.null,fecha_alta.lte.${manana}`)
+        .or(`fecha_baja.is.null,fecha_baja.gte.${hoy}`)
         .order('tipo')
         .order('nombre_palet')
         .order('n_serie'),

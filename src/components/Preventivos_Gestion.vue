@@ -58,19 +58,49 @@ const formMaquinaVacio = () => ({
   capacidad_nominal: '',
   capacidad_unidad: '',
   adquisicion: '',
+  fecha_alta: '',
+  fecha_baja: '',
   orden_sap: '',
 })
+
+const OPCIONES_ADQUISICION = ['Alquiler', 'Sustitución', 'Renting', 'Alquiler temporal', 'Propiedad']
+
+function hoyISO() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function sumarDiasISO(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
+
+function estaActivaMaquina(m) {
+  const hoy = hoyISO()
+  const manana = sumarDiasISO(hoy, 1)
+  const alta = m.fecha_alta ? String(m.fecha_alta).slice(0, 10) : null
+  const baja = m.fecha_baja ? String(m.fecha_baja).slice(0, 10) : null
+  if (alta && alta > manana) return false
+  if (baja && baja < hoy) return false
+  return true
+}
 
 const maquinasFiltradas = computed(() => {
   const q = busquedaMaquinas.value.trim().toLowerCase()
   return maquinas.value.filter(m => {
-    if (filtroMaquinas.value === 'activas' && !m.activo) return false
-    if (filtroMaquinas.value === 'inactivas' && m.activo) return false
+    const activa = estaActivaMaquina(m)
+    if (filtroMaquinas.value === 'activas' && !activa) return false
+    if (filtroMaquinas.value === 'inactivas' && activa) return false
     if (!q) return true
     const haystack = [m.tipo, m.nombre_palet, m.accionamiento, m.modelo, m.n_serie, m.matricula, m.proveedor]
       .filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(q)
-  })
+  }).sort((a, b) => Number(estaActivaMaquina(b)) - Number(estaActivaMaquina(a)))
 })
 
 async function cargarMaquinas() {
@@ -111,6 +141,8 @@ function abrirEditarMaquina(m) {
     capacidad_nominal: m.capacidad_nominal ?? '',
     capacidad_unidad: m.capacidad_unidad || '',
     adquisicion: m.adquisicion || '',
+    fecha_alta: m.fecha_alta ? String(m.fecha_alta).slice(0, 10) : '',
+    fecha_baja: m.fecha_baja ? String(m.fecha_baja).slice(0, 10) : '',
     orden_sap: m.orden_sap || '',
   }
 }
@@ -141,9 +173,12 @@ async function guardarMaquina() {
       capacidad_nominal: f.capacidad_nominal === '' ? null : Number(f.capacidad_nominal),
       capacidad_unidad: f.capacidad_unidad.trim() || null,
       adquisicion: f.adquisicion.trim() || null,
+      fecha_alta: f.fecha_alta || null,
+      fecha_baja: f.fecha_baja || null,
       orden_sap: f.orden_sap.trim() || null,
       updated_by: auth.user?.id || null,
     }
+    payload.activo = estaActivaMaquina(payload)
     if (modoMaquina.value === 'nueva') {
       payload.created_by = auth.user?.id || null
       const { error } = await supabase.from('maquinaria_logistica').insert(payload)
@@ -167,11 +202,16 @@ async function guardarMaquina() {
 }
 
 async function darBajaMaquina(m) {
-  if (!confirm(`¿Dar de baja la máquina "${nombreMaquina(m)}"?\n\nNo aparecerá en los listados de mantenimiento. Los registros históricos se conservan.`)) return
+  if (!confirm(`¿Dar de baja la máquina "${nombreMaquina(m)}"?\n\nSe marcará hoy como fecha de baja. No aparecerá en los listados de mantenimiento a partir de mañana. Los registros históricos se conservan.`)) return
   try {
+    const fecha_baja = hoyISO()
     const { error } = await supabase
       .from('maquinaria_logistica')
-      .update({ activo: false, fecha_baja: new Date().toISOString(), updated_by: auth.user?.id || null })
+      .update({
+        activo: estaActivaMaquina({ fecha_alta: m.fecha_alta, fecha_baja }),
+        fecha_baja,
+        updated_by: auth.user?.id || null,
+      })
       .eq('id', m.id)
     if (error) throw error
     mostrarExito('Máquina dada de baja')
@@ -185,7 +225,11 @@ async function reactivarMaquina(m) {
   try {
     const { error } = await supabase
       .from('maquinaria_logistica')
-      .update({ activo: true, fecha_baja: null, updated_by: auth.user?.id || null })
+      .update({
+        activo: estaActivaMaquina({ fecha_alta: m.fecha_alta, fecha_baja: null }),
+        fecha_baja: null,
+        updated_by: auth.user?.id || null,
+      })
       .eq('id', m.id)
     if (error) throw error
     mostrarExito('Máquina reactivada')
@@ -489,8 +533,19 @@ onMounted(async () => {
               <input v-model="maquinaForm.capacidad_unidad" type="text" placeholder="kg, t..." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
             </div>
             <div>
-              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Adquisición</label>
-              <input v-model="maquinaForm.adquisicion" type="text" placeholder="Compra, Renting..." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Tipo de adquisición</label>
+              <select v-model="maquinaForm.adquisicion" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                <option value="">— Sin especificar —</option>
+                <option v-for="op in OPCIONES_ADQUISICION" :key="op" :value="op">{{ op }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Fecha de alta</label>
+              <input v-model="maquinaForm.fecha_alta" type="date" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Fecha de baja</label>
+              <input v-model="maquinaForm.fecha_baja" type="date" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
             </div>
             <div>
               <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Orden SAP</label>
@@ -522,12 +577,12 @@ onMounted(async () => {
             v-for="m in maquinasFiltradas"
             :key="m.id"
             class="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors"
-            :class="{ 'opacity-60': !m.activo }"
+            :class="{ 'opacity-60': !estaActivaMaquina(m) }"
           >
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="text-base font-semibold text-slate-900 truncate">{{ nombreMaquina(m) }}</h3>
-                <Badge v-if="!m.activo" variant="warning" size="sm">De baja</Badge>
+                <Badge v-if="!estaActivaMaquina(m)" variant="warning" size="sm">De baja</Badge>
                 <span v-if="m.accionamiento" class="text-xs font-medium text-slate-400">{{ m.accionamiento }}</span>
               </div>
               <div class="flex flex-wrap items-center gap-x-5 gap-y-0.5 mt-1 text-xs font-medium text-slate-500">
@@ -535,12 +590,15 @@ onMounted(async () => {
                 <span v-if="m.modelo">Modelo <span class="text-slate-700">{{ m.modelo }}</span></span>
                 <span v-if="m.proveedor">{{ m.proveedor }}</span>
                 <span v-if="m.ano_fabricacion">{{ m.ano_fabricacion }}</span>
+                <span v-if="m.adquisicion">{{ m.adquisicion }}</span>
+                <span v-if="m.fecha_alta">Alta <span class="text-slate-700">{{ String(m.fecha_alta).slice(0, 10) }}</span></span>
+                <span v-if="m.fecha_baja">Baja <span class="text-slate-700">{{ String(m.fecha_baja).slice(0, 10) }}</span></span>
               </div>
             </div>
             <Button variant="ghost" @click="abrirEditarMaquina(m)" title="Editar">
               <Pencil class="w-4 h-4" />
             </Button>
-            <Button v-if="m.activo" variant="ghost" @click="darBajaMaquina(m)" title="Dar de baja">
+            <Button v-if="estaActivaMaquina(m)" variant="ghost" @click="darBajaMaquina(m)" title="Dar de baja">
               <Trash2 class="w-4 h-4 text-red-500" />
             </Button>
             <Button v-else variant="ghost" @click="reactivarMaquina(m)" title="Reactivar">
