@@ -29,7 +29,7 @@ const TODAS_LAS_PESTANAS = tabs.map(t => t.id)
 const PERMISOS_POR_ROL = {
   admin: TODAS_LAS_PESTANAS,
   user: TODAS_LAS_PESTANAS,
-  logistica: ['preventivos', 'cuadre', 'albaranes'],
+  logistica: ['carteles', 'preventivos', 'cuadre', 'albaranes'],
 }
 
 const pestanasPermitidas = computed(() => {

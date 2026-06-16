@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabaseOrigen } from '../lib/supabase'
-import { Tag, AlertCircle, Printer } from 'lucide-vue-next'
+import { Tag, AlertCircle, Printer, Search } from 'lucide-vue-next'
 import jsPDF from 'jspdf'
 import Card from './ui/Card.vue'
 import Button from './ui/Button.vue'
@@ -16,8 +16,27 @@ const plataformaSeleccionada = ref(null)
 const numeroPedido = ref('')
 const fechaEntrega = ref('')
 
+const busqueda = ref('')
+const mostrarLista = ref(false)
+const indiceActivo = ref(-1)
+
+function normaliza(txt) {
+  return (txt || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+const plataformasFiltradas = computed(() => {
+  const q = normaliza(busqueda.value)
+  if (!q) return plataformas.value
+  return plataformas.value.filter(p => normaliza(p.nombre).includes(q))
+})
+
 const esMcdOConsum = computed(() => {
-  if (!plataformaSeleccionada.value) return false
+  if (!plataformaSeleccionada.value || !plataformaSeleccionada.value.nombre) return false
   const nombre = plataformaSeleccionada.value.nombre.toUpperCase()
   return nombre.startsWith('MCD') || nombre.startsWith('CONSUM')
 })
@@ -53,9 +72,43 @@ async function cargarPlataformas() {
 }
 
 function seleccionarPlataforma(plat) {
+  if (!plat) return
   plataformaSeleccionada.value = plat
+  busqueda.value = plat.nombre || ''
+  mostrarLista.value = false
+  indiceActivo.value = -1
   if (!esMcdOConsum.value) {
     numeroPedido.value = ''
+  }
+}
+
+function onBuscar() {
+  mostrarLista.value = true
+  indiceActivo.value = -1
+  if (plataformaSeleccionada.value && plataformaSeleccionada.value.nombre !== busqueda.value) {
+    plataformaSeleccionada.value = null
+  }
+}
+
+function onTeclado(e) {
+  if (!mostrarLista.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    mostrarLista.value = true
+    return
+  }
+  const lista = plataformasFiltradas.value
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    indiceActivo.value = Math.min(indiceActivo.value + 1, lista.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    indiceActivo.value = Math.max(indiceActivo.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    if (indiceActivo.value >= 0 && lista[indiceActivo.value]) {
+      e.preventDefault()
+      seleccionarPlataforma(lista[indiceActivo.value])
+    }
+  } else if (e.key === 'Escape') {
+    mostrarLista.value = false
   }
 }
 
@@ -148,8 +201,22 @@ async function generarCartel() {
       doc.setTextColor(0)
     }
 
-    const nombreArchivo = `Cartel_${plataformaSeleccionada.value.nombre.replace(/\s+/g, '_')}_${fechaEntrega.value}.pdf`
-    doc.save(nombreArchivo)
+    doc.autoPrint()
+    const blobUrl = doc.output('bloburl')
+
+    const iframeExistente = document.getElementById('cartel-print-frame')
+    if (iframeExistente) iframeExistente.remove()
+
+    const iframe = document.createElement('iframe')
+    iframe.id = 'cartel-print-frame'
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    iframe.src = blobUrl
+    document.body.appendChild(iframe)
   } catch (err) {
     errorMsg.value = 'Error generando cartel: ' + err.message
   } finally {
@@ -194,20 +261,41 @@ async function generarCartel() {
               1. Plataforma
             </label>
             <div v-if="loadingPlataformas" class="text-sm font-medium text-slate-400 py-2">Cargando plataformas...</div>
-            <select
-              v-else
-              @change="seleccionarPlataforma(plataformas.find(p => p.id === Number($event.target.value)))"
-              class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 cursor-pointer focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all"
-            >
-              <option value="" disabled selected>Selecciona una plataforma...</option>
-              <option
-                v-for="plat in plataformas"
-                :key="plat.id"
-                :value="plat.id"
+            <div v-else class="relative">
+              <Search class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                v-model="busqueda"
+                type="text"
+                autocomplete="off"
+                placeholder="Escribe para buscar una plataforma..."
+                @focus="mostrarLista = true"
+                @input="onBuscar"
+                @keydown="onTeclado"
+                @blur="mostrarLista = false"
+                class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-400"
+              />
+              <ul
+                v-if="mostrarLista"
+                class="absolute z-20 mt-1.5 w-full max-h-64 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg py-1"
               >
-                {{ plat.nombre }}
-              </option>
-            </select>
+                <li
+                  v-for="(plat, i) in plataformasFiltradas"
+                  :key="plat.id"
+                  @mousedown.prevent="seleccionarPlataforma(plat)"
+                  @mouseenter="indiceActivo = i"
+                  class="px-4 py-2 text-sm font-medium cursor-pointer transition-colors"
+                  :class="[
+                    i === indiceActivo ? 'bg-violet-50 text-violet-900' : 'text-slate-700',
+                    plataformaSeleccionada && plataformaSeleccionada.id === plat.id ? 'font-semibold' : ''
+                  ]"
+                >
+                  {{ plat.nombre || '(sin nombre)' }}
+                </li>
+                <li v-if="plataformasFiltradas.length === 0" class="px-4 py-2 text-sm font-medium text-slate-400">
+                  No hay coincidencias
+                </li>
+              </ul>
+            </div>
             <p v-if="plataformaSeleccionada && plataformaSeleccionada.direccion" class="mt-2 text-xs font-medium text-slate-500 pl-1">
               {{ plataformaSeleccionada.direccion }}
             </p>
