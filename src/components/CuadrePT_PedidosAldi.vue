@@ -36,7 +36,10 @@ const ESTADO_META = {
 }
 
 function estadosVacios() {
-  return { diario: 'real', lunes: 'prev' }
+  return {
+    diario: { masquefa: 'real', miranda: 'real', sagunto: 'real' },
+    lunes:  { masquefa: 'prev', miranda: 'prev', sagunto: 'prev' },
+  }
 }
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
@@ -102,8 +105,9 @@ function valoresVacios() {
 const valores = ref(valoresVacios())
 const estados = ref(estadosVacios())
 
-function toggleEstado(tipo) {
-  estados.value[tipo] = estados.value[tipo] === 'real' ? 'prev' : 'real'
+function toggleEstado(tipo, platKey) {
+  if (!estados.value[tipo]) estados.value[tipo] = {}
+  estados.value[tipo][platKey] = estados.value[tipo][platKey] === 'real' ? 'prev' : 'real'
 }
 
 function getValor(tipo, prodKey, platKey) {
@@ -132,7 +136,7 @@ const ultimaEntrega = ref({ masquefa: null, miranda: null, sagunto: null })
 async function cargarPlantilla() {
   const { data, error } = await supabase
     .from('aldi_pedidos_plantilla')
-    .select('producto, tipo, estado, masquefa, miranda, sagunto')
+    .select('producto, tipo, estado_masquefa, estado_miranda, estado_sagunto, masquefa, miranda, sagunto')
     .eq('fecha_produccion', fecha.value)
   if (error) throw error
 
@@ -145,8 +149,11 @@ async function cargarPlantilla() {
         miranda: row.miranda ?? 0,
         sagunto: row.sagunto ?? 0,
       }
-      if (row.estado === 'real' || row.estado === 'prev') {
-        baseEstados[row.tipo] = row.estado
+      for (const plat of PLATAFORMAS) {
+        const est = row['estado_' + plat.key]
+        if (est === 'real' || est === 'prev') {
+          baseEstados[row.tipo][plat.key] = est
+        }
       }
     }
   }
@@ -224,7 +231,9 @@ async function guardar() {
           fecha_produccion: fecha.value,
           producto: p.key,
           tipo: t.tipo,
-          estado: estados.value[t.tipo] ?? 'real',
+          estado_masquefa: estados.value[t.tipo]?.masquefa ?? 'real',
+          estado_miranda: estados.value[t.tipo]?.miranda ?? 'real',
+          estado_sagunto: estados.value[t.tipo]?.sagunto ?? 'real',
           masquefa: valores.value[t.tipo]?.[p.key]?.masquefa ?? 0,
           miranda: p.miranda ? (valores.value[t.tipo]?.[p.key]?.miranda ?? 0) : 0,
           sagunto: valores.value[t.tipo]?.[p.key]?.sagunto ?? 0,
@@ -319,14 +328,6 @@ watch(estados, scheduleAutoSave, { deep: true })
                 <span v-if="tabla.tipo === 'lunes'" class="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200 rounded px-2 py-1">
                   Entrega lunes
                 </span>
-                <button
-                  type="button"
-                  @click="toggleEstado(tabla.tipo)"
-                  :class="['text-[11px] font-bold uppercase tracking-wider border rounded px-2 py-1 transition-colors hover:brightness-95', ESTADO_META[estados[tabla.tipo]].class]"
-                  title="Clic para alternar REAL / PREV"
-                >
-                  {{ ESTADO_META[estados[tabla.tipo]].label }}
-                </button>
               </div>
             </div>
 
@@ -388,11 +389,11 @@ watch(estados, scheduleAutoSave, { deep: true })
                     <td v-for="plat in PLATAFORMAS" :key="plat.key" class="px-3 py-2 text-center">
                       <button
                         type="button"
-                        @click="toggleEstado(tabla.tipo)"
-                        :class="['text-[10px] font-bold uppercase tracking-wider border rounded px-2 py-0.5 transition-colors hover:brightness-95', ESTADO_META[estados[tabla.tipo]].class]"
+                        @click="toggleEstado(tabla.tipo, plat.key)"
+                        :class="['text-[10px] font-bold uppercase tracking-wider border rounded px-2 py-0.5 transition-colors hover:brightness-95', ESTADO_META[estados[tabla.tipo][plat.key]].class]"
                         title="Clic para alternar REAL / PREV"
                       >
-                        {{ ESTADO_META[estados[tabla.tipo]].label }}
+                        {{ ESTADO_META[estados[tabla.tipo][plat.key]].label }}
                       </button>
                     </td>
                     <td class="px-3 py-2 text-center text-sm font-bold text-slate-800 bg-slate-100">
