@@ -345,8 +345,6 @@ watch(fecha, cargarDatos, { immediate: true })
                 <th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Cliente</th>
                 <th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Producto</th>
                 <th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Nombre SAP</th>
-                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600 bg-slate-100">SF Viern</th>
-                <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600 bg-slate-100">SF Sábad</th>
                 <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Stock inicial</th>
                 <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Fabricado</th>
                 <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-600">Salidas pedidos</th>
@@ -359,8 +357,6 @@ watch(fecha, cargarDatos, { immediate: true })
                 <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">{{ fila.cliente }}</td>
                 <td class="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">{{ fila.producto }}</td>
                 <td class="px-3 py-2 text-xs font-medium text-slate-500 whitespace-nowrap">{{ fila.nombreSap }}</td>
-                <td class="px-3 py-2 text-center bg-slate-50/60"></td>
-                <td class="px-3 py-2 text-center bg-slate-50/60"></td>
                 <td class="p-0.5 bg-sky-50">
                   <input
                     type="number"
