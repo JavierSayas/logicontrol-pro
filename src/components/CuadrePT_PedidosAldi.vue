@@ -206,7 +206,7 @@ async function cargarHistorico() {
   try {
     const { data, error } = await supabaseOrigen
       .from('ventas')
-      .select('fecha_entrega, codigo_destinatario, descripcion, cantidad, cantidad_entregada, unidad')
+      .select('fecha_entrega, codigo_destinatario, descripcion, cantidad, cantidad_entregada')
       .in('codigo_destinatario', Object.keys(VENTAS_DEST))
       .in('fecha_entrega', ventasDates)
     if (error) throw error
@@ -218,11 +218,9 @@ async function cargarHistorico() {
       const prodKey = productoDeDescripcion(row.descripcion)
       const entregada = Number(row.cantidad_entregada)
       const pedida = Number(row.cantidad)
-      const q = Number.isFinite(entregada) && entregada > 0 ? entregada : (Number.isFinite(pedida) ? pedida : 0)
+      const cajas = Number.isFinite(entregada) && entregada > 0 ? entregada : (Number.isFinite(pedida) ? pedida : 0)
       const k = row.fecha_entrega + '|' + prodKey + '|' + plat
-      if (!acc[k]) acc[k] = { cj: 0, kg: 0 }
-      if ((row.unidad || '').toUpperCase() === 'CJ') acc[k].cj += q
-      else acc[k].kg += q
+      acc[k] = (acc[k] ?? 0) + cajas
     }
 
     const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
@@ -232,8 +230,8 @@ async function cargarHistorico() {
         let tiene = false
         for (const plat of PLATAFORMAS) {
           const a = acc[sem.ventasDate + '|' + prod.key + '|' + plat.key]
-          if (a) {
-            vals[plat.key] = Math.round(a.cj > 0 ? a.cj : a.kg)
+          if (a != null) {
+            vals[plat.key] = Math.round(a)
             tiene = true
           }
         }
@@ -469,6 +467,7 @@ watch(estados, scheduleAutoSave, { deep: true })
           <div class="flex items-center gap-2 px-1">
             <History class="w-4 h-4 text-indigo-500" />
             <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Resumen histórico pedidos</h3>
+            <span class="text-[10px] font-semibold text-slate-400 normal-case">· en cajas</span>
           </div>
 
           <Card v-for="prod in PRODUCTOS" :key="prod.key" flush>
