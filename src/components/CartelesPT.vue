@@ -43,7 +43,6 @@ const esMcdOConsum = computed(() => {
 
 const puedeImprimir = computed(() => {
   if (!plataformaSeleccionada.value) return false
-  if (!fechaEntrega.value) return false
   if (esMcdOConsum.value && !numeroPedido.value.trim()) return false
   return true
 })
@@ -173,17 +172,18 @@ async function generarCartel() {
     doc.text('FECHA DE ENTREGA:', pageW / 2, y + 7, { align: 'center' })
     y += 10
 
-    const fechaObj = new Date(fechaEntrega.value + 'T00:00:00')
-    const fechaFormateada = fechaObj.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-
     doc.rect(marginX, y, contentW, 30)
-    doc.setFontSize(40)
-    doc.setFont('helvetica', 'bold')
-    doc.text(fechaFormateada, pageW / 2, y + 21, { align: 'center' })
+    if (fechaEntrega.value) {
+      const fechaObj = new Date(fechaEntrega.value + 'T00:00:00')
+      const fechaFormateada = fechaObj.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      doc.setFontSize(40)
+      doc.setFont('helvetica', 'bold')
+      doc.text(fechaFormateada, pageW / 2, y + 21, { align: 'center' })
+    }
     y += 30
 
     y += 10
@@ -325,7 +325,7 @@ async function generarCartel() {
 
           <div>
             <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-              3. Fecha de Entrega
+              3. Fecha de Entrega (opcional)
             </label>
             <input
               v-model="fechaEntrega"
