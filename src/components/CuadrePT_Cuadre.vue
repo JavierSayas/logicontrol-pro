@@ -45,6 +45,23 @@ const realidadData = ref({})
 const realidadAnteriorData = ref({})
 const stockInicialOverride = ref({})
 const fabricadoData = ref({})
+const aldiSalidasData = ref({})
+const salidasOverride = ref({})
+
+const ALDI_PEDIDOS_MAP = {
+  'Coco 150g': 'Coco Aldi',
+  'Cilindro': 'Piña Cilindro Aldi',
+}
+
+function esAldi(fila) {
+  return fila.cliente === 'Aldi'
+}
+function esLidl(fila) {
+  return fila.cliente === 'Lidl'
+}
+function esSalidasManual(fila) {
+  return !esAldi(fila) && !esLidl(fila)
+}
 const loading = ref(false)
 const errorMsg = ref('')
 const saveStatus = ref('idle')
@@ -86,7 +103,24 @@ function setStockInicial(fila, raw) {
 }
 
 function getSalidasPedidos(fila) {
-  return stockData.value[rowKey(fila)]?.expediciones ?? null
+  if (esAldi(fila)) {
+    const prodAldi = ALDI_PEDIDOS_MAP[fila.producto]
+    return aldiSalidasData.value[prodAldi] ?? null
+  }
+  if (esLidl(fila)) {
+    return stockData.value[rowKey(fila)]?.expediciones ?? null
+  }
+  return salidasOverride.value[rowKey(fila)] ?? null
+}
+
+function getSalidasManual(fila) {
+  const v = salidasOverride.value[rowKey(fila)]
+  return v == null ? '' : v
+}
+
+function setSalidasManual(fila, raw) {
+  const k = rowKey(fila)
+  salidasOverride.value[k] = raw === '' || raw == null ? null : Math.round(Number(raw))
 }
 
 function getFabricado(fila) {
@@ -166,13 +200,31 @@ async function cargarStock() {
 async function cargarRealidad() {
   const { data, error } = await supabase
     .from('cuadre_pt_realidad')
-    .select('cliente, producto, realidad, stock_inicial')
+    .select('cliente, producto, realidad, stock_inicial, salidas_pedidos')
     .eq('fecha', fecha.value)
   if (error) throw error
   realidadData.value = Object.fromEntries((data || []).map(r => [rowKey(r), r.realidad]))
   stockInicialOverride.value = Object.fromEntries(
     (data || []).map(r => [rowKey(r), r.stock_inicial == null ? null : Number(r.stock_inicial)])
   )
+  salidasOverride.value = Object.fromEntries(
+    (data || []).map(r => [rowKey(r), r.salidas_pedidos == null ? null : Number(r.salidas_pedidos)])
+  )
+}
+
+async function cargarAldiPedidos() {
+  const { data, error } = await supabase
+    .from('aldi_pedidos_plantilla')
+    .select('producto, masquefa, miranda, sagunto')
+    .eq('fecha_produccion', fecha.value)
+    .eq('tipo', 'diario')
+  if (error) throw error
+  const map = {}
+  for (const row of (data || [])) {
+    const total = (Number(row.masquefa) || 0) + (Number(row.miranda) || 0) + (Number(row.sagunto) || 0)
+    map[row.producto] = (map[row.producto] || 0) + total
+  }
+  aldiSalidasData.value = map
 }
 
 function fechaMenosUn(fechaStr) {
@@ -274,7 +326,7 @@ async function cargarDatos() {
   loading.value = true
   errorMsg.value = ''
   try {
-    await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado()])
+    await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado(), cargarAldiPedidos()])
   } catch (err) {
     console.error('[Cuadre] Error:', err)
     errorMsg.value = 'Error cargando datos: ' + err.message
@@ -294,6 +346,7 @@ async function guardarTodo() {
       producto: f.producto,
       realidad: realidadData.value[rowKey(f)] ?? null,
       stock_inicial: stockInicialOverride.value[rowKey(f)] ?? null,
+      salidas_pedidos: esSalidasManual(f) ? (salidasOverride.value[rowKey(f)] ?? null) : null,
     }))
     const [{ error: e1 }, { error: e2 }] = await Promise.all([
       supabase
@@ -327,6 +380,7 @@ function scheduleAutoSave() {
 
 watch(realidadData, scheduleAutoSave, { deep: true })
 watch(stockInicialOverride, scheduleAutoSave, { deep: true })
+watch(salidasOverride, scheduleAutoSave, { deep: true })
 watch(pedidoLidl, scheduleAutoSave, { deep: true })
 watch(fecha, cargarDatos, { immediate: true })
 </script>
@@ -405,7 +459,18 @@ watch(fecha, cargarDatos, { immediate: true })
                   />
                 </td>
                 <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getFabricado(fila) }}</td>
-                <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getSalidasPedidos(fila) ?? '—' }}</td>
+                <td v-if="esSalidasManual(fila)" class="p-0.5 bg-amber-50">
+                  <input
+                    type="number"
+                    step="1"
+                    :value="getSalidasManual(fila)"
+                    @change="setSalidasManual(fila, $event.target.value)"
+                    @focus="$event.target.select()"
+                    class="w-full min-w-[80px] text-center bg-transparent outline-none focus:bg-amber-100 rounded px-1 py-1 text-sm font-semibold text-slate-900"
+                    placeholder="—"
+                  />
+                </td>
+                <td v-else class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getSalidasPedidos(fila) ?? '—' }}</td>
                 <td class="p-0.5 bg-amber-50">
                   <input
                     type="number"
