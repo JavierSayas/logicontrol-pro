@@ -172,24 +172,32 @@ async function cargarHistorico() {
   if (error) throw error
 
   const rows = data || []
-  const dowActual = new Date(fecha.value + 'T12:00:00').getDay()
-
-  const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
-  const fechasUsadas = Object.fromEntries(PRODUCTOS.map(p => [p.key, new Set()]))
+  const mapa = {}
   for (const row of rows) {
-    const dow = new Date(row.fecha_produccion + 'T12:00:00').getDay()
-    if (dow !== dowActual) continue
-    if (!hist[row.producto]) continue
-    if (fechasUsadas[row.producto].size >= 4 && !fechasUsadas[row.producto].has(row.fecha_produccion)) continue
-    fechasUsadas[row.producto].add(row.fecha_produccion)
-    const entrega = addDays(row.fecha_produccion, 1)
-    hist[row.producto].push({
-      entrega,
-      dia: diaDe(entrega),
-      masquefa: row.masquefa ?? 0,
-      miranda: row.miranda ?? 0,
-      sagunto: row.sagunto ?? 0,
-    })
+    mapa[row.fecha_produccion + '|' + row.producto] = row
+  }
+
+  const SEMANAS = [
+    { label: 'S-3', dias: 21 },
+    { label: 'S-2', dias: 14 },
+    { label: 'S-1', dias: 7 },
+  ]
+  const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
+  for (const prod of PRODUCTOS) {
+    for (const sem of SEMANAS) {
+      const prodDate = addDays(fecha.value, -sem.dias)
+      const entrega = addDays(prodDate, 1)
+      const row = mapa[prodDate + '|' + prod.key]
+      hist[prod.key].push({
+        sem: sem.label,
+        entrega,
+        dia: diaDe(entrega),
+        tiene: !!row,
+        masquefa: row?.masquefa ?? 0,
+        miranda: row?.miranda ?? 0,
+        sagunto: row?.sagunto ?? 0,
+      })
+    }
   }
   historico.value = hist
 
@@ -443,6 +451,7 @@ watch(estados, scheduleAutoSave, { deep: true })
             <table class="w-full border-collapse text-sm">
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sem</th>
                   <th class="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Fecha</th>
                   <th class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500">MAS</th>
                   <th class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500">MIR</th>
@@ -450,21 +459,29 @@ watch(estados, scheduleAutoSave, { deep: true })
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="!historico[prod.key]?.length">
-                  <td colspan="4" class="px-2 py-4 text-center text-xs font-medium text-slate-400">Sin histórico</td>
-                </tr>
                 <tr
                   v-for="h in historico[prod.key]"
-                  :key="h.entrega"
+                  :key="h.sem"
                   class="border-b border-slate-100 last:border-b-0"
+                  :class="h.tiene ? '' : 'opacity-60'"
                 >
-                  <td class="px-2 py-1.5 text-xs font-medium text-slate-600 whitespace-nowrap">{{ formatoCorto(h.entrega) }}</td>
-                  <td class="px-2 py-1.5 text-center text-sm font-semibold text-slate-800">{{ h.masquefa }}</td>
-                  <td class="px-2 py-1.5 text-center text-sm font-semibold" :class="prod.miranda ? 'text-slate-800' : 'text-slate-300'">
-                    <template v-if="prod.miranda">{{ h.miranda }}</template>
-                    <span v-else>✕</span>
+                  <td class="px-2 py-1.5">
+                    <span class="text-[10px] font-bold text-indigo-500 bg-indigo-50 rounded px-1.5 py-0.5">{{ h.sem }}</span>
                   </td>
-                  <td class="px-2 py-1.5 text-center text-sm font-semibold text-slate-800">{{ h.sagunto }}</td>
+                  <td class="px-2 py-1.5 text-xs font-medium text-slate-600 whitespace-nowrap">{{ formatoCorto(h.entrega) }}</td>
+                  <template v-if="h.tiene">
+                    <td class="px-2 py-1.5 text-center text-sm font-semibold text-slate-800">{{ h.masquefa }}</td>
+                    <td class="px-2 py-1.5 text-center text-sm font-semibold" :class="prod.miranda ? 'text-slate-800' : 'text-slate-300'">
+                      <template v-if="prod.miranda">{{ h.miranda }}</template>
+                      <span v-else>✕</span>
+                    </td>
+                    <td class="px-2 py-1.5 text-center text-sm font-semibold text-slate-800">{{ h.sagunto }}</td>
+                  </template>
+                  <template v-else>
+                    <td class="px-2 py-1.5 text-center text-sm font-medium text-slate-300">—</td>
+                    <td class="px-2 py-1.5 text-center text-sm font-medium text-slate-300">—</td>
+                    <td class="px-2 py-1.5 text-center text-sm font-medium text-slate-300">—</td>
+                  </template>
                 </tr>
               </tbody>
             </table>
