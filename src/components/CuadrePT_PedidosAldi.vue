@@ -197,15 +197,18 @@ function historicoVacio() {
 }
 
 async function cargarHistorico() {
-  const entregaActual = fechaEntrega('diario')
-  const entregaDates = SEMANAS.map(s => addDays(entregaActual, -s.dias))
+  const semanas = SEMANAS.map(s => {
+    const ventasDate = addDays(fecha.value, -s.dias)
+    return { ...s, ventasDate, entrega: addDays(ventasDate, 1) }
+  })
+  const ventasDates = semanas.map(s => s.ventasDate)
 
   try {
     const { data, error } = await supabaseOrigen
       .from('ventas')
       .select('fecha_entrega, codigo_destinatario, descripcion, cantidad, cantidad_entregada, unidad')
       .in('codigo_destinatario', Object.keys(VENTAS_DEST))
-      .in('fecha_entrega', entregaDates)
+      .in('fecha_entrega', ventasDates)
     if (error) throw error
 
     const acc = {}
@@ -224,12 +227,11 @@ async function cargarHistorico() {
 
     const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
     for (const prod of PRODUCTOS) {
-      for (const sem of SEMANAS) {
-        const entrega = addDays(entregaActual, -sem.dias)
+      for (const sem of semanas) {
         const vals = { masquefa: 0, miranda: 0, sagunto: 0 }
         let tiene = false
         for (const plat of PLATAFORMAS) {
-          const a = acc[entrega + '|' + prod.key + '|' + plat.key]
+          const a = acc[sem.ventasDate + '|' + prod.key + '|' + plat.key]
           if (a) {
             vals[plat.key] = Math.round(a.cj > 0 ? a.cj : a.kg)
             tiene = true
@@ -237,8 +239,8 @@ async function cargarHistorico() {
         }
         hist[prod.key].push({
           sem: sem.label,
-          entrega,
-          dia: diaDe(entrega),
+          entrega: sem.entrega,
+          dia: diaDe(sem.entrega),
           tiene,
           ...vals,
         })
