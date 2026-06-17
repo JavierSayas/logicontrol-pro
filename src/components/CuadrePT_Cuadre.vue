@@ -191,26 +191,45 @@ async function cargarRealidadAnterior() {
 }
 
 async function cargarFabricado() {
-  const codes = [...new Set(FILAS.map(f => f.materialSap))]
-  const { data, error } = await supabaseOrigen
-    .from('ordenes_fabricacion')
-    .select('material_sap, cliente, cajas')
-    .eq('fecha_produccion', fecha.value)
+  const codes = [...new Set(FILAS.map(f => Number(f.materialSap)))]
+
+  const { data: prods, error: ep } = await supabaseOrigen
+    .from('productos')
+    .select('id, material_sap')
     .in('material_sap', codes)
+  if (ep) throw ep
+
+  const idToMaterial = {}
+  const ids = []
+  for (const p of (prods || [])) {
+    idToMaterial[p.id] = String(p.material_sap)
+    ids.push(p.id)
+  }
+  if (ids.length === 0) {
+    fabricadoData.value = {}
+    return
+  }
+
+  const d = new Date(fecha.value + 'T12:00:00')
+  d.setDate(d.getDate() + 1)
+  const nextDay = d.toISOString().slice(0, 10)
+
+  const { data, error } = await supabaseOrigen
+    .from('producciones')
+    .select('producto_id, cantidad_entregada')
+    .in('producto_id', ids)
+    .gte('fecha_orden', fecha.value + 'T00:00:00Z')
+    .lt('fecha_orden', nextDay + 'T00:00:00Z')
   if (error) throw error
 
   const map = {}
   for (const row of (data || [])) {
-    const cliente = row.cliente || ''
-    const fila = FILAS.find(f =>
-      f.materialSap === String(row.material_sap) &&
-      (!f.matchClienteOF || f.matchClienteOF.test(cliente))
-    )
+    const mat = idToMaterial[row.producto_id]
+    if (!mat) continue
+    const fila = FILAS.find(f => f.materialSap === mat)
     if (!fila) continue
-
-    const valor = Number(row.cajas)
+    const valor = Number(row.cantidad_entregada)
     if (Number.isNaN(valor)) continue
-
     const k = rowKey(fila)
     map[k] = (map[k] || 0) + valor
   }
