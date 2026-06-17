@@ -160,27 +160,38 @@ async function cargarPlantilla() {
   estados.value = baseEstados
 }
 
-async function cargarHistorico() {
-  const { data, error } = await supabaseOrigen
-    .from('aldi_pedidos')
-    .select('fecha_produccion, producto, masquefa, miranda, sagunto')
-    .eq('tipo', 'diario')
-    .lt('fecha_produccion', fecha.value)
-    .order('fecha_produccion', { ascending: false })
-    .limit(160)
-  if (error) throw error
+const SEMANAS = [
+  { label: 'S-3', dias: 21 },
+  { label: 'S-2', dias: 14 },
+  { label: 'S-1', dias: 7 },
+]
 
-  const rows = data || []
+async function cargarHistorico() {
+  const prodDates = SEMANAS.map(s => addDays(fecha.value, -s.dias))
+
+  const [resPlantilla, resOrigen] = await Promise.all([
+    supabase
+      .from('aldi_pedidos_plantilla')
+      .select('fecha_produccion, producto, masquefa, miranda, sagunto')
+      .eq('tipo', 'diario')
+      .in('fecha_produccion', prodDates),
+    supabaseOrigen
+      .from('aldi_pedidos')
+      .select('fecha_produccion, producto, masquefa, miranda, sagunto')
+      .eq('tipo', 'diario')
+      .in('fecha_produccion', prodDates),
+  ])
+  if (resPlantilla.error) throw resPlantilla.error
+  if (resOrigen.error) throw resOrigen.error
+
   const mapa = {}
-  for (const row of rows) {
+  for (const row of (resOrigen.data || [])) {
+    mapa[row.fecha_produccion + '|' + row.producto] = row
+  }
+  for (const row of (resPlantilla.data || [])) {
     mapa[row.fecha_produccion + '|' + row.producto] = row
   }
 
-  const SEMANAS = [
-    { label: 'S-3', dias: 21 },
-    { label: 'S-2', dias: 14 },
-    { label: 'S-1', dias: 7 },
-  ]
   const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
   for (const prod of PRODUCTOS) {
     for (const sem of SEMANAS) {
