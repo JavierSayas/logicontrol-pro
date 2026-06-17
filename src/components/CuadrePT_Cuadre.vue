@@ -216,17 +216,32 @@ async function cargarFabricado() {
 
   const { data, error } = await supabaseOrigen
     .from('producciones')
-    .select('producto_id, cantidad_entregada')
+    .select('producto_id, cantidad_entregada, numero_orden')
     .in('producto_id', ids)
     .gte('fecha_orden', fecha.value + 'T00:00:00Z')
     .lt('fecha_orden', nextDay + 'T00:00:00Z')
   if (error) throw error
 
+  const ordenes = [...new Set((data || []).map(r => r.numero_orden).filter(v => v != null).map(String))]
+  let clientePorOrden = {}
+  if (ordenes.length) {
+    const { data: ofRows, error: eo } = await supabaseOrigen
+      .from('ordenes_fabricacion')
+      .select('n_orden, cliente')
+      .in('n_orden', ordenes)
+    if (eo) throw eo
+    clientePorOrden = Object.fromEntries((ofRows || []).map(r => [String(r.n_orden), r.cliente || '']))
+  }
+
   const map = {}
   for (const row of (data || [])) {
     const mat = idToMaterial[row.producto_id]
     if (!mat) continue
-    const fila = FILAS.find(f => f.materialSap === mat)
+    const cliente = clientePorOrden[String(row.numero_orden)] || ''
+    const fila = FILAS.find(f =>
+      f.materialSap === mat &&
+      (!f.matchClienteOF || f.matchClienteOF.test(cliente))
+    )
     if (!fila) continue
     const valor = Number(row.cantidad_entregada)
     if (Number.isNaN(valor)) continue
