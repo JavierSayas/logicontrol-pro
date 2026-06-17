@@ -166,50 +166,89 @@ const SEMANAS = [
   { label: 'S-1', dias: 7 },
 ]
 
-async function cargarHistorico() {
-  const prodDates = SEMANAS.map(s => addDays(fecha.value, -s.dias))
+const VENTAS_DEST = {
+  '1000577': 'masquefa',
+  '1000823': 'miranda',
+  '1000811': 'sagunto',
+}
 
-  const [resPlantilla, resOrigen] = await Promise.all([
-    supabase
-      .from('aldi_pedidos_plantilla')
-      .select('fecha_produccion, producto, masquefa, miranda, sagunto')
-      .eq('tipo', 'diario')
-      .in('fecha_produccion', prodDates),
-    supabaseOrigen
-      .from('aldi_pedidos')
-      .select('fecha_produccion, producto, masquefa, miranda, sagunto')
-      .eq('tipo', 'diario')
-      .in('fecha_produccion', prodDates),
-  ])
-  if (resPlantilla.error) throw resPlantilla.error
-  if (resOrigen.error) throw resOrigen.error
+function productoDeDescripcion(desc) {
+  return /coco/i.test(desc || '') ? 'Coco Aldi' : 'Piña Cilindro Aldi'
+}
 
-  const mapa = {}
-  for (const row of (resOrigen.data || [])) {
-    mapa[row.fecha_produccion + '|' + row.producto] = row
-  }
-  for (const row of (resPlantilla.data || [])) {
-    mapa[row.fecha_produccion + '|' + row.producto] = row
-  }
-
+function historicoVacio() {
+  const entregaActual = fechaEntrega('diario')
   const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
   for (const prod of PRODUCTOS) {
     for (const sem of SEMANAS) {
-      const prodDate = addDays(fecha.value, -sem.dias)
-      const entrega = addDays(prodDate, 1)
-      const row = mapa[prodDate + '|' + prod.key]
+      const entrega = addDays(entregaActual, -sem.dias)
       hist[prod.key].push({
         sem: sem.label,
         entrega,
         dia: diaDe(entrega),
-        tiene: !!row,
-        masquefa: row?.masquefa ?? 0,
-        miranda: row?.miranda ?? 0,
-        sagunto: row?.sagunto ?? 0,
+        tiene: false,
+        masquefa: 0,
+        miranda: 0,
+        sagunto: 0,
       })
     }
   }
-  historico.value = hist
+  return hist
+}
+
+async function cargarHistorico() {
+  const entregaActual = fechaEntrega('diario')
+  const entregaDates = SEMANAS.map(s => addDays(entregaActual, -s.dias))
+
+  try {
+    const { data, error } = await supabaseOrigen
+      .from('ventas')
+      .select('fecha_entrega, codigo_destinatario, descripcion, cantidad, cantidad_entregada, unidad')
+      .in('codigo_destinatario', Object.keys(VENTAS_DEST))
+      .in('fecha_entrega', entregaDates)
+    if (error) throw error
+
+    const acc = {}
+    for (const row of (data || [])) {
+      const plat = VENTAS_DEST[row.codigo_destinatario]
+      if (!plat) continue
+      const prodKey = productoDeDescripcion(row.descripcion)
+      const entregada = Number(row.cantidad_entregada)
+      const pedida = Number(row.cantidad)
+      const q = Number.isFinite(entregada) && entregada > 0 ? entregada : (Number.isFinite(pedida) ? pedida : 0)
+      const k = row.fecha_entrega + '|' + prodKey + '|' + plat
+      if (!acc[k]) acc[k] = { cj: 0, kg: 0 }
+      if ((row.unidad || '').toUpperCase() === 'CJ') acc[k].cj += q
+      else acc[k].kg += q
+    }
+
+    const hist = Object.fromEntries(PRODUCTOS.map(p => [p.key, []]))
+    for (const prod of PRODUCTOS) {
+      for (const sem of SEMANAS) {
+        const entrega = addDays(entregaActual, -sem.dias)
+        const vals = { masquefa: 0, miranda: 0, sagunto: 0 }
+        let tiene = false
+        for (const plat of PLATAFORMAS) {
+          const a = acc[entrega + '|' + prod.key + '|' + plat.key]
+          if (a) {
+            vals[plat.key] = Math.round(a.cj > 0 ? a.cj : a.kg)
+            tiene = true
+          }
+        }
+        hist[prod.key].push({
+          sem: sem.label,
+          entrega,
+          dia: diaDe(entrega),
+          tiene,
+          ...vals,
+        })
+      }
+    }
+    historico.value = hist
+  } catch (err) {
+    console.error('[PedidosAldi] Error cargando histórico de ventas:', err)
+    historico.value = historicoVacio()
+  }
 }
 
 async function cargarDatos() {
