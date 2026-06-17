@@ -70,6 +70,10 @@ let isLoadingData = false
 
 const PLATAFORMAS_LIDL = ['Madrid', 'Barcelona', 'Tarragona', 'Valencia', 'Murcia', 'Málaga', 'Narón', 'Vitoria', 'Sevilla', 'Granada', 'Martorell']
 
+const EXP_G1 = ['madrid', 'barcelona', 'tarragona', 'valencia', 'murcia', 'martorell']
+const EXP_G2 = ['malaga', 'naron', 'vitoria', 'sevilla', 'granada']
+const lidlSalidas = ref(null)
+
 function addDaysISO(n) {
   const d = new Date()
   d.setDate(d.getDate() + n)
@@ -108,7 +112,7 @@ function getSalidasPedidos(fila) {
     return aldiSalidasData.value[prodAldi] ?? null
   }
   if (esLidl(fila)) {
-    return stockData.value[rowKey(fila)]?.expediciones ?? null
+    return lidlSalidas.value
   }
   return salidasOverride.value[rowKey(fila)] ?? null
 }
@@ -210,6 +214,44 @@ async function cargarRealidad() {
   salidasOverride.value = Object.fromEntries(
     (data || []).map(r => [rowKey(r), r.salidas_pedidos == null ? null : Number(r.salidas_pedidos)])
   )
+}
+
+async function cargarLidlSalidas() {
+  const d = new Date(fecha.value + 'T12:00:00')
+  const dow = d.getDay()
+  if (dow === 0 || dow === 6) {
+    lidlSalidas.value = null
+    return
+  }
+  const addDias = (n) => {
+    const nd = new Date(fecha.value + 'T12:00:00')
+    nd.setDate(nd.getDate() + n)
+    return nd.toISOString().slice(0, 10)
+  }
+  const fechas = dow === 5 ? [addDias(1), addDias(3)] : [addDias(1), addDias(2)]
+
+  const { data, error } = await supabaseOrigen
+    .from('comercial_plataformas')
+    .select('fecha,madrid,barcelona,tarragona,valencia,murcia,martorell,malaga,naron,vitoria,sevilla,granada')
+    .eq('tipo', 'operaciones')
+    .in('fecha', fechas)
+  if (error) throw error
+
+  const byFecha = Object.fromEntries((data || []).map(r => [r.fecha, r]))
+  const sum = (row, keys) => keys.reduce((s, k) => {
+    const v = parseFloat(String(row?.[k] ?? '').replace(',', '.'))
+    return s + (Number.isNaN(v) ? 0 : v)
+  }, 0)
+
+  let total = 0
+  if (dow === 1) {
+    total = sum(byFecha[fechas[0]], [...EXP_G1, ...EXP_G2]) + sum(byFecha[fechas[1]], EXP_G2)
+  } else if (dow >= 2 && dow <= 4) {
+    total = sum(byFecha[fechas[0]], EXP_G1) + sum(byFecha[fechas[1]], EXP_G2)
+  } else {
+    total = sum(byFecha[fechas[0]], EXP_G1) + sum(byFecha[fechas[1]], [...EXP_G1, ...EXP_G2])
+  }
+  lidlSalidas.value = total > 0 ? total : null
 }
 
 async function cargarAldiPedidos() {
@@ -326,7 +368,7 @@ async function cargarDatos() {
   loading.value = true
   errorMsg.value = ''
   try {
-    await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado(), cargarAldiPedidos()])
+    await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado(), cargarAldiPedidos(), cargarLidlSalidas()])
   } catch (err) {
     console.error('[Cuadre] Error:', err)
     errorMsg.value = 'Error cargando datos: ' + err.message
