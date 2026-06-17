@@ -131,7 +131,6 @@ function totalTabla(tipo) {
 }
 
 const historico = ref(Object.fromEntries(PRODUCTOS.map(p => [p.key, []])))
-const ultimaEntrega = ref({ masquefa: null, miranda: null, sagunto: null })
 
 async function cargarPlantilla() {
   const { data, error } = await supabase
@@ -200,17 +199,6 @@ async function cargarHistorico() {
     }
   }
   historico.value = hist
-
-  const ult = { masquefa: null, miranda: null, sagunto: null }
-  for (const row of rows) {
-    for (const plat of PLATAFORMAS) {
-      if (ult[plat.key] == null && (row[plat.key] ?? 0) > 0) {
-        ult[plat.key] = addDays(row.fecha_produccion, 1)
-      }
-    }
-    if (ult.masquefa && ult.miranda && ult.sagunto) break
-  }
-  ultimaEntrega.value = ult
 }
 
 async function cargarDatos() {
@@ -430,18 +418,6 @@ watch(estados, scheduleAutoSave, { deep: true })
             <History class="w-4 h-4 text-indigo-500" />
             <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Resumen histórico pedidos</h3>
           </div>
-
-          <Card flush>
-            <div class="px-4 py-2.5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
-              <h4 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Última fecha entrega histórico</h4>
-            </div>
-            <div class="grid grid-cols-3 divide-x divide-slate-100">
-              <div v-for="plat in PLATAFORMAS" :key="plat.key" class="px-3 py-3 text-center">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ plat.short }}</div>
-                <div class="text-sm font-semibold text-slate-800 mt-0.5">{{ formatoCorto(ultimaEntrega[plat.key]) }}</div>
-              </div>
-            </div>
-          </Card>
 
           <Card v-for="prod in PRODUCTOS" :key="prod.key" flush>
             <div :class="['px-4 py-2 border-b border-slate-100 rounded-t-2xl', prod.rowClass]">
