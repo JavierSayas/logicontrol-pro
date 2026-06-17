@@ -10,7 +10,9 @@ const FILAS = [
   { cliente: 'Aldi',                  producto: 'Cilindro',   rowClass: 'bg-white' },
   { cliente: 'Lidl',                  producto: 'Cilindro',   rowClass: 'bg-orange-50' },
   { cliente: 'El corte inglés',       producto: 'Cilindro',   rowClass: 'bg-emerald-50' },
+  { cliente: 'El corte inglés',       producto: 'Tacos Piña', rowClass: 'bg-emerald-50' },
   { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  rowClass: 'bg-violet-50' },
+  { cliente: 'Supermercados Consum',  producto: 'Cilindro',   rowClass: 'bg-violet-50' },
 ]
 
 const LINEAS = [

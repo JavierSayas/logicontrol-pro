@@ -1,39 +1,33 @@
 <script setup>
-import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
-import { supabase } from '../lib/supabase'
-import { FileSpreadsheet, RefreshCw, AlertCircle, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { supabaseOrigen } from '../lib/supabase'
+import { FileSpreadsheet, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 import Button from './ui/Button.vue'
 
 const COLUMNAS = [
-  { key: 'fecha_manip',          label: 'Fecha manip',           db: 'fecha_manip' },
-  { key: 'fecha_cad',            label: 'Fecha cad',             db: 'fecha_cad' },
-  { key: 'cl_orden',             label: 'Cl orden',              db: 'cl_orden' },
-  { key: 'desc_fruta',           label: 'Desc fruta',            db: 'desc_fruta' },
-  { key: 'texto_breve_material', label: 'Texto breve material',  db: 'texto_breve_material' },
-  { key: 'nombre_cliente',       label: 'Nombre cliente',        db: 'nombre_cliente' },
-  { key: 'cant_orden',           label: 'cant orden',            db: 'cant_orden' },
-  { key: 'p_x',                  label: 'p+x',                   db: 'p_x' },
-  { key: 'cant_notificada',      label: 'cant notificada',       db: 'cant_notificada' },
-  { key: 'estado',               label: 'estado',                db: 'estado' },
-  { key: 'num_orden',            label: 'nº orden',              db: 'num_orden' },
-  { key: 'linea',                label: 'línea',                 db: 'linea' },
-  { key: 'unidad',               label: 'unidad',                db: 'unidad' },
-  { key: 'lote',                 label: 'lote',                  db: 'lote' },
-  { key: 'destinatario',         label: 'Destinatario',          db: 'destinatario' },
+  { key: 'n_orden',      label: 'Nº orden',     db: 'n_orden',      tipo: 'texto',  align: 'left'  },
+  { key: 'producto',     label: 'Producto',     db: 'producto',     tipo: 'texto',  align: 'left'  },
+  { key: 'cliente',      label: 'Cliente',      db: 'cliente',      tipo: 'texto',  align: 'left'  },
+  { key: 'p_plus',       label: 'P+x',          db: 'p_plus',       tipo: 'texto',  align: 'left'  },
+  { key: 'material_sap', label: 'Material SAP', db: 'material_sap', tipo: 'texto',  align: 'left'  },
+  { key: 'cajas',        label: 'Cajas',        db: 'cajas',        tipo: 'num',    align: 'right' },
+  { key: 'ud_fabricar',  label: 'Ud. fabricar', db: 'ud_fabricar',  tipo: 'num',    align: 'right' },
+  { key: 'ud_caja',      label: 'Ud./caja',     db: 'ud_caja',      tipo: 'num',    align: 'right' },
+  { key: 'kg_caja',      label: 'Kg/caja',      db: 'kg_caja',      tipo: 'num',    align: 'right' },
+  { key: 'kg_neto',      label: 'Kg neto',      db: 'kg_neto',      tipo: 'num',    align: 'right' },
+  { key: 'fec_cad',      label: 'Fecha cad.',   db: 'fec_cad',      tipo: 'fecha',  align: 'left'  },
+  { key: 'entrega',      label: 'Entrega',      db: 'entrega',      tipo: 'fecha',  align: 'left'  },
+  { key: 'otros_datos',  label: 'Otros datos',  db: 'otros_datos',  tipo: 'texto',  align: 'left'  },
 ]
+
+const COLUMNAS_TOTAL = ['cajas', 'ud_fabricar', 'kg_neto']
 
 const filas = ref([])
 const loading = ref(false)
 const errorMsg = ref('')
-const toast = ref(null)
-const toastType = ref('success')
-const saveStatus = ref('idle')
-const hayDatosGuardados = ref(false)
 const fecha = ref(new Date().toISOString().slice(0, 10))
 const fechasDisponibles = ref([])
-let debounceTimer = null
-let isLoadingData = false
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 const diaSemana = computed(() => {
@@ -56,147 +50,77 @@ function irAHoy() {
   fecha.value = new Date().toISOString().slice(0, 10)
 }
 
-function showToast(message, type = 'success') {
-  toast.value = message
-  toastType.value = type
-  setTimeout(() => { toast.value = null }, 3500)
+function formatNum(valor) {
+  if (valor === null || valor === undefined || valor === '') return ''
+  const n = Number(valor)
+  if (Number.isNaN(n)) return String(valor)
+  return n.toLocaleString('es-ES', { maximumFractionDigits: 2 })
 }
 
-function handlePaste(event) {
-  event.preventDefault()
-  errorMsg.value = ''
+function formatFecha(valor) {
+  if (!valor) return ''
+  const d = new Date(valor + 'T12:00:00')
+  if (Number.isNaN(d.getTime())) return String(valor)
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
-  const texto = event.clipboardData.getData('text')
-  const lineas = texto.trim().split(/[\r\n]+/).filter(l => l.trim())
+function mostrarCelda(fila, col) {
+  const valor = fila[col.key]
+  if (col.tipo === 'num') return formatNum(valor)
+  if (col.tipo === 'fecha') return formatFecha(valor)
+  return valor || ''
+}
 
-  if (lineas.length === 0) {
-    showToast('No hay datos para pegar', 'error')
-    return
-  }
-
-  if (hayDatosGuardados.value) {
-    const fechaSel = new Date(fecha.value + 'T12:00:00').toLocaleDateString('es-ES')
-    const ok = window.confirm(`Ya hay datos guardados para el ${fechaSel}.\n\n¿Quieres reemplazarlos con los datos que estás pegando?`)
-    if (!ok) {
-      showToast('Pegado cancelado', 'error')
-      return
-    }
-  }
-
-  const sep = lineas[0].includes('\t') ? '\t' : '|'
-  const filasParseadas = []
-
-  const [yyyy, mm, dd] = fecha.value.split('-')
-  const fechaManipFormateada = `${dd}.${mm}.${yyyy}`
-
-  for (const linea of lineas) {
-    const celdas = linea.split(sep).map(c => c.trim())
-    if (celdas.length === 0) continue
-
-    const fila = {}
-    COLUMNAS.forEach((col, idx) => {
-      fila[col.key] = idx < celdas.length ? celdas[idx] : ''
+const totales = computed(() => {
+  const acc = {}
+  COLUMNAS_TOTAL.forEach(key => { acc[key] = 0 })
+  filas.value.forEach(fila => {
+    COLUMNAS_TOTAL.forEach(key => {
+      const n = Number(fila[key])
+      if (!Number.isNaN(n)) acc[key] += n
     })
-
-    fila.fecha_manip = fechaManipFormateada
-
-    if (Object.values(fila).some(v => v !== '' && v !== fechaManipFormateada)) {
-      filasParseadas.push(fila)
-    }
-  }
-
-  if (filasParseadas.length === 0) {
-    showToast('No se encontraron filas válidas', 'error')
-    return
-  }
-
-  filas.value = filasParseadas
-  hayDatosGuardados.value = true
-  showToast(`${filasParseadas.length} filas pegadas`, 'success')
-}
+  })
+  return acc
+})
 
 async function cargarFechasDisponibles() {
   try {
-    const { data, error } = await supabase
-      .from('produccion_dia')
-      .select('fecha_subida')
-      .order('fecha_subida', { ascending: false })
+    const { data, error } = await supabaseOrigen
+      .from('ordenes_fabricacion')
+      .select('fecha_produccion')
+      .order('fecha_produccion', { ascending: false })
     if (error) throw error
-    const set = new Set((data || []).map(r => r.fecha_subida))
-    fechasDisponibles.value = [...set]
+    const set = new Set((data || []).map(r => r.fecha_produccion).filter(Boolean))
+    fechasDisponibles.value = [...set].slice(0, 30)
   } catch {
     fechasDisponibles.value = []
   }
 }
 
 async function cargarDatos() {
-  isLoadingData = true
   loading.value = true
   errorMsg.value = ''
   try {
-    const { data, error } = await supabase
-      .from('produccion_dia')
-      .select('*')
-      .eq('fecha_subida', fecha.value)
-      .order('created_at')
+    const { data, error } = await supabaseOrigen
+      .from('ordenes_fabricacion')
+      .select('id, fecha_produccion, idx, producto, cliente, p_plus, fec_cad, cajas, ud_fabricar, ud_caja, kg_caja, kg_neto, otros_datos, entrega, n_orden, material_sap')
+      .eq('fecha_produccion', fecha.value)
+      .order('idx', { ascending: true })
     if (error) throw error
     filas.value = (data || []).map(r => {
       const fila = {}
-      COLUMNAS.forEach(col => { fila[col.key] = r[col.db] || '' })
+      COLUMNAS.forEach(col => { fila[col.key] = r[col.db] })
       return fila
     })
-    hayDatosGuardados.value = filas.value.length > 0
     await cargarFechasDisponibles()
   } catch (err) {
-    errorMsg.value = 'Error cargando datos: ' + err.message
+    errorMsg.value = 'Error cargando producción: ' + err.message
+    filas.value = []
   } finally {
     loading.value = false
-    await nextTick()
-    isLoadingData = false
   }
 }
 
-async function guardar() {
-  saveStatus.value = 'saving'
-  errorMsg.value = ''
-  try {
-    const { error: deleteError } = await supabase
-      .from('produccion_dia')
-      .delete()
-      .eq('fecha_subida', fecha.value)
-    if (deleteError) throw deleteError
-
-    if (filas.value.length > 0) {
-      const rows = filas.value.map(f => {
-        const row = { fecha_subida: fecha.value }
-        COLUMNAS.forEach(col => { row[col.db] = f[col.key] || null })
-        return row
-      })
-      const { error } = await supabase.from('produccion_dia').insert(rows)
-      if (error) throw error
-    }
-    saveStatus.value = 'saved'
-    await cargarFechasDisponibles()
-  } catch (err) {
-    saveStatus.value = 'error'
-    errorMsg.value = 'Error guardando: ' + err.message
-  }
-}
-
-function scheduleAutoSave() {
-  if (isLoadingData) return
-  clearTimeout(debounceTimer)
-  saveStatus.value = 'idle'
-  debounceTimer = setTimeout(guardar, 800)
-}
-
-function limpiar() {
-  filas.value = []
-  hayDatosGuardados.value = false
-  errorMsg.value = ''
-}
-
-watch(filas, scheduleAutoSave, { deep: true })
 watch(fecha, cargarDatos)
 
 const hayDatos = computed(() => filas.value.length > 0)
@@ -207,25 +131,10 @@ onActivated(cargarDatos)
 
 <template>
   <div class="space-y-5">
-    <transition name="slide-in">
-      <div
-        v-if="toast"
-        :class="[
-          'fixed top-6 right-6 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg border z-50',
-          toastType === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            : 'bg-red-50 border-red-200 text-red-800'
-        ]"
-      >
-        <component :is="toastType === 'success' ? CheckCircle2 : XCircle" class="w-4 h-4 shrink-0" />
-        <span class="font-medium text-sm">{{ toast }}</span>
-      </div>
-    </transition>
-
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div class="text-sm font-medium text-slate-500">
-        {{ hayDatos ? `${filas.length} filas cargadas` : 'Haz clic en la tabla y pega los datos (Ctrl+V)' }}
-        · Se conservan 10 días
+        {{ hayDatos ? `${filas.length} órdenes de fabricación` : 'Sin producción para la fecha seleccionada' }}
+        · Datos de Origen (solo lectura)
       </div>
 
       <div class="flex items-center gap-3 flex-wrap">
@@ -251,24 +160,15 @@ onActivated(cargarDatos)
           </button>
         </div>
 
-        <span class="text-xs font-medium italic">
-          <span v-if="saveStatus === 'saving'" class="text-slate-400">Guardando…</span>
-          <span v-else-if="saveStatus === 'saved'" class="text-emerald-600 inline-flex items-center gap-1 not-italic">
-            <CheckCircle2 class="w-3.5 h-3.5" />
-            Guardado
-          </span>
-          <span v-else-if="saveStatus === 'error'" class="text-red-600 not-italic">Error al guardar</span>
-        </span>
-
-        <Button v-if="hayDatos" variant="secondary" @click="limpiar">
-          <RefreshCw class="w-4 h-4" />
-          Limpiar
+        <Button variant="secondary" :disabled="loading" @click="cargarDatos">
+          <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': loading }" />
+          Actualizar
         </Button>
       </div>
     </div>
 
     <div v-if="fechasDisponibles.length > 0" class="flex items-center gap-2 flex-wrap text-xs">
-      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Días con datos:</span>
+      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Días con producción:</span>
       <button
         v-for="f in fechasDisponibles"
         :key="f"
@@ -289,7 +189,7 @@ onActivated(cargarDatos)
       <span>{{ errorMsg }}</span>
     </div>
 
-    <Card flush @paste="handlePaste">
+    <Card flush>
       <div class="overflow-x-auto max-h-[600px]">
         <table class="w-full text-sm border-collapse">
           <thead>
@@ -298,7 +198,8 @@ onActivated(cargarDatos)
               <th
                 v-for="col in COLUMNAS"
                 :key="col.key"
-                class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                class="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                :class="col.align === 'right' ? 'text-right' : 'text-left'"
               >
                 {{ col.label }}
               </th>
@@ -316,8 +217,8 @@ onActivated(cargarDatos)
                 <td :colspan="COLUMNAS.length + 1" class="py-0">
                   <div class="flex flex-col items-center justify-center py-12 -mt-[calc(6*2.75rem)]">
                     <FileSpreadsheet class="w-10 h-10 text-slate-300 mb-3" />
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sin datos</p>
-                    <p class="text-sm font-medium text-slate-500 mt-1">Haz clic aquí y pega tus datos (Ctrl+V)</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sin producción</p>
+                    <p class="text-sm font-medium text-slate-500 mt-1">No hay órdenes de fabricación para esta fecha</p>
                   </div>
                 </td>
               </tr>
@@ -334,13 +235,32 @@ onActivated(cargarDatos)
                 <td
                   v-for="col in COLUMNAS"
                   :key="col.key"
-                  class="p-0"
+                  class="px-3 py-2 text-xs text-slate-700 whitespace-nowrap"
+                  :class="[
+                    col.align === 'right' ? 'text-right tabular-nums' : 'text-left',
+                    col.key === 'producto' || col.key === 'cliente' ? 'font-semibold text-slate-900' : ''
+                  ]"
                 >
-                  <input
-                    v-model="fila[col.key]"
-                    type="text"
-                    class="w-full px-3 py-2 text-xs text-slate-700 bg-transparent outline-none focus:bg-amber-50 transition-colors"
-                  />
+                  {{ mostrarCelda(fila, col) }}
+                </td>
+              </tr>
+
+              <tr class="border-t-2 border-slate-200 bg-slate-900 text-white">
+                <td class="sticky left-0 z-10 bg-slate-900 px-3 py-3 text-center">
+                  <span class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Σ</span>
+                </td>
+                <td
+                  v-for="col in COLUMNAS"
+                  :key="col.key"
+                  class="px-3 py-3 text-xs"
+                  :class="col.align === 'right' ? 'text-right tabular-nums' : 'text-left'"
+                >
+                  <span v-if="col.key === 'n_orden'" class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                    {{ filas.length }} órdenes
+                  </span>
+                  <span v-else-if="COLUMNAS_TOTAL.includes(col.key)" class="font-bold text-blue-300 text-sm">
+                    {{ formatNum(totales[col.key]) }}
+                  </span>
                 </td>
               </tr>
             </template>

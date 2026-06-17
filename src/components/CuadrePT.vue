@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { ClipboardList, Factory, Calculator, FileSpreadsheet, Building2 } from 'lucide-vue-next'
+import { ClipboardList, Factory, Calculator, FileSpreadsheet, Building2, Boxes } from 'lucide-vue-next'
 import CuadrePT_Produccion from './CuadrePT_Produccion.vue'
 import CuadrePT_Cuadre from './CuadrePT_Cuadre.vue'
 import CuadrePT_ProduccionDia from './CuadrePT_ProduccionDia.vue'
+import CuadrePT_PedidosAldi from './CuadrePT_PedidosAldi.vue'
 import Lidl from './Lidl.vue'
 import PageHeader from './ui/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
@@ -13,6 +14,7 @@ const auth = useAuthStore()
 const subtabs = [
   { id: 'produccion',    label: 'Producción',         icon: Factory },
   { id: 'cuadre',        label: 'Cuadre',             icon: Calculator },
+  { id: 'pedidosAldi',   label: 'Pedidos Aldi',       icon: Boxes },
   { id: 'produccionDia', label: 'Producción del día', icon: FileSpreadsheet },
   { id: 'lidl',          label: 'Lidl',               icon: Building2 },
 ]
@@ -69,6 +71,7 @@ watch(() => auth.role, aplicarPermisosSubtab)
     <keep-alive>
       <CuadrePT_Produccion v-if="activeSubtab === 'produccion'" />
       <CuadrePT_Cuadre v-else-if="activeSubtab === 'cuadre'" />
+      <CuadrePT_PedidosAldi v-else-if="activeSubtab === 'pedidosAldi'" />
       <CuadrePT_ProduccionDia v-else-if="activeSubtab === 'produccionDia'" />
       <Lidl v-else-if="activeSubtab === 'lidl'" />
     </keep-alive>

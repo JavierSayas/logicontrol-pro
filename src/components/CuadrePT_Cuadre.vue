@@ -6,11 +6,13 @@ import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-v
 import Card from './ui/Card.vue'
 
 const FILAS = [
-  { cliente: 'Aldi',                  producto: 'Coco 150g',  nombreSap: 'COCO TACOS 06X150 ALDIIFCO',    matchCliente: /aldi/i,                          matchProducto: /(coco.*150|150.*coco)/i,        rowClass: 'bg-white' },
-  { cliente: 'Aldi',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 07X540 ALDIIFCO', matchCliente: /aldi/i,                          matchProducto: /cilindro/i,                     rowClass: 'bg-white' },
-  { cliente: 'Lidl',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X540 PRP LIDL', matchCliente: /lidl/i,                          matchProducto: /cilindro/i,                     rowClass: 'bg-orange-50' },
-  { cliente: 'El corte inglés',       producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X500 DLM',      matchCliente: /delmonte/i,                      matchProducto: /cilindro/i,                     rowClass: 'bg-emerald-50' },
-  { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  nombreSap: 'COCO TACOS 06X125 DLM',         matchCliente: /delmonte/i,                      matchProducto: /(coco.*125|125.*coco)/i,        rowClass: 'bg-violet-50' },
+  { cliente: 'Aldi',                  producto: 'Coco 150g',  nombreSap: 'COCO TACOS 06X150 ALDIIFCO',    materialSap: '11001778',                          rowClass: 'bg-white' },
+  { cliente: 'Aldi',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 07X540 ALDIIFCO', materialSap: '11001781',                          rowClass: 'bg-white' },
+  { cliente: 'Lidl',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X540 PRP LIDL', materialSap: '11002133', matchClienteOF: /lidl/i,   rowClass: 'bg-orange-50' },
+  { cliente: 'El corte inglés',       producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X500 DLM',      materialSap: '11001283',                            rowClass: 'bg-emerald-50' },
+  { cliente: 'El corte inglés',       producto: 'Tacos Piña', nombreSap: 'PIÑA TACOS 06X400 DLM',         materialSap: '11002365',                            rowClass: 'bg-emerald-50' },
+  { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  nombreSap: 'COCO TACOS 06X125 DLM',         materialSap: '11002288',                            rowClass: 'bg-violet-50' },
+  { cliente: 'Supermercados Consum',  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X540 DLM',      materialSap: '11001451', matchClienteOF: /consum/i, rowClass: 'bg-violet-50' },
 ]
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
@@ -40,6 +42,8 @@ const rowKey = f => `${f.cliente}|${f.producto}`
 
 const stockData = ref({})
 const realidadData = ref({})
+const realidadAnteriorData = ref({})
+const stockInicialOverride = ref({})
 const fabricadoData = ref({})
 const loading = ref(false)
 const errorMsg = ref('')
@@ -63,8 +67,22 @@ const opcionesFechaEntrega = computed(() => [
 
 const pedidoLidl = ref({ plataforma: '', fecha_entrega: '', cantidad: null })
 
+function getStockInicialAuto(fila) {
+  const prev = realidadAnteriorData.value[rowKey(fila)]
+  if (prev != null) return Number(prev)
+  const s = stockData.value[rowKey(fila)]?.stock_inicial
+  return s == null ? null : Number(s)
+}
+
 function getStockInicial(fila) {
-  return stockData.value[rowKey(fila)]?.stock_inicial ?? null
+  const ov = stockInicialOverride.value[rowKey(fila)]
+  if (ov != null) return ov
+  return getStockInicialAuto(fila)
+}
+
+function setStockInicial(fila, raw) {
+  const k = rowKey(fila)
+  stockInicialOverride.value[k] = raw === '' || raw == null ? null : Math.round(Number(raw))
 }
 
 function getSalidasPedidos(fila) {
@@ -89,7 +107,44 @@ function getRealidad(fila) {
 
 function setRealidad(fila, raw) {
   const k = rowKey(fila)
-  realidadData.value[k] = raw === '' || raw == null ? null : Number(raw)
+  realidadData.value[k] = raw === '' || raw == null ? null : Math.round(Number(raw))
+}
+
+function focusRealidad(idx) {
+  nextTick(() => {
+    const inputs = document.querySelectorAll('input[data-realidad-input]')
+    const el = inputs[idx]
+    if (el) {
+      el.focus()
+      if (typeof el.select === 'function') el.select()
+    }
+  })
+}
+
+function handleRealidadKeydown(event, idx) {
+  if (event.key !== 'Enter') return
+  event.preventDefault()
+  setRealidad(FILAS[idx], event.target.value)
+  const next = event.shiftKey ? idx - 1 : idx + 1
+  if (next >= 0 && next < FILAS.length) focusRealidad(next)
+}
+
+function focusStock(idx) {
+  nextTick(() => {
+    const inputs = document.querySelectorAll('input[data-stock-input]')
+    const el = inputs[idx]
+    if (el) {
+      el.focus()
+      if (typeof el.select === 'function') el.select()
+    }
+  })
+}
+
+function handleStockKeydown(event, idx) {
+  if (event.key !== 'Enter') return
+  event.preventDefault()
+  const next = event.shiftKey ? idx - 1 : idx + 1
+  if (next >= 0 && next < FILAS.length) focusStock(next)
 }
 
 function getCuadre(fila) {
@@ -111,49 +166,50 @@ async function cargarStock() {
 async function cargarRealidad() {
   const { data, error } = await supabase
     .from('cuadre_pt_realidad')
-    .select('cliente, producto, realidad')
+    .select('cliente, producto, realidad, stock_inicial')
     .eq('fecha', fecha.value)
   if (error) throw error
   realidadData.value = Object.fromEntries((data || []).map(r => [rowKey(r), r.realidad]))
+  stockInicialOverride.value = Object.fromEntries(
+    (data || []).map(r => [rowKey(r), r.stock_inicial == null ? null : Number(r.stock_inicial)])
+  )
 }
 
-function parseFechaFlexible(str) {
-  if (!str) return null
-  const s = String(str).trim()
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
-  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`
-  m = s.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})$/)
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`
-  m = s.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2})$/)
-  if (m) {
-    const yy = parseInt(m[3], 10)
-    const yyyy = yy < 70 ? 2000 + yy : 1900 + yy
-    return `${yyyy}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`
-  }
-  return null
+function fechaMenosUn(fechaStr) {
+  const d = new Date(fechaStr + 'T12:00:00')
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+async function cargarRealidadAnterior() {
+  const { data, error } = await supabase
+    .from('cuadre_pt_realidad')
+    .select('cliente, producto, realidad')
+    .eq('fecha', fechaMenosUn(fecha.value))
+  if (error) throw error
+  realidadAnteriorData.value = Object.fromEntries((data || []).map(r => [rowKey(r), r.realidad]))
 }
 
 async function cargarFabricado() {
-  const { data, error } = await supabase
-    .from('produccion_dia')
-    .select('nombre_cliente, desc_fruta, texto_breve_material, cant_notificada, fecha_manip')
+  const codes = [...new Set(FILAS.map(f => f.materialSap))]
+  const { data, error } = await supabaseOrigen
+    .from('ordenes_fabricacion')
+    .select('material_sap, cliente, ud_fabricar')
+    .eq('fecha_produccion', fecha.value)
+    .in('material_sap', codes)
   if (error) throw error
 
   const map = {}
   for (const row of (data || [])) {
-    const fechaProd = parseFechaFlexible(row.fecha_manip)
-    if (fechaProd !== fecha.value) continue
-
-    const cliente = row.nombre_cliente || ''
-    const productoText = `${row.desc_fruta || ''} ${row.texto_breve_material || ''}`
-
+    const cliente = row.cliente || ''
     const fila = FILAS.find(f =>
-      f.matchCliente.test(cliente) && f.matchProducto.test(productoText)
+      f.materialSap === String(row.material_sap) &&
+      (!f.matchClienteOF || f.matchClienteOF.test(cliente))
     )
     if (!fila) continue
 
-    const valor = parseFloat(String(row.cant_notificada || '').replace(',', '.'))
-    if (isNaN(valor)) continue
+    const valor = Number(row.ud_fabricar)
+    if (Number.isNaN(valor)) continue
 
     const k = rowKey(fila)
     map[k] = (map[k] || 0) + valor
@@ -184,7 +240,7 @@ async function cargarDatos() {
   loading.value = true
   errorMsg.value = ''
   try {
-    await Promise.all([cargarStock(), cargarRealidad(), cargarPedidoLidl(), cargarFabricado()])
+    await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado()])
   } catch (err) {
     console.error('[Cuadre] Error:', err)
     errorMsg.value = 'Error cargando datos: ' + err.message
@@ -203,6 +259,7 @@ async function guardarTodo() {
       cliente: f.cliente,
       producto: f.producto,
       realidad: realidadData.value[rowKey(f)] ?? null,
+      stock_inicial: stockInicialOverride.value[rowKey(f)] ?? null,
     }))
     const [{ error: e1 }, { error: e2 }] = await Promise.all([
       supabase
@@ -214,7 +271,7 @@ async function guardarTodo() {
           fecha: fecha.value,
           plataforma: pedidoLidl.value.plataforma || null,
           fecha_entrega: pedidoLidl.value.fecha_entrega || null,
-          cantidad: pedidoLidl.value.cantidad ?? null,
+          cantidad: pedidoLidl.value.cantidad == null ? null : Math.round(pedidoLidl.value.cantidad),
         }], { onConflict: 'fecha' }),
     ])
     if (e1) throw e1
@@ -235,6 +292,7 @@ function scheduleAutoSave() {
 }
 
 watch(realidadData, scheduleAutoSave, { deep: true })
+watch(stockInicialOverride, scheduleAutoSave, { deep: true })
 watch(pedidoLidl, scheduleAutoSave, { deep: true })
 watch(fecha, cargarDatos, { immediate: true })
 </script>
@@ -297,21 +355,36 @@ watch(fecha, cargarDatos, { immediate: true })
               </tr>
             </thead>
             <tbody>
-              <tr v-for="fila in FILAS" :key="rowKey(fila)" :class="['border-b border-slate-100', fila.rowClass]">
+              <tr v-for="(fila, idx) in FILAS" :key="rowKey(fila)" :class="['border-b border-slate-100', fila.rowClass]">
                 <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">{{ fila.cliente }}</td>
                 <td class="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">{{ fila.producto }}</td>
                 <td class="px-3 py-2 text-xs font-medium text-slate-500 whitespace-nowrap">{{ fila.nombreSap }}</td>
                 <td class="px-3 py-2 text-center bg-slate-50/60"></td>
                 <td class="px-3 py-2 text-center bg-slate-50/60"></td>
-                <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getStockInicial(fila) ?? '—' }}</td>
+                <td class="p-0.5 bg-sky-50">
+                  <input
+                    type="number"
+                    step="1"
+                    data-stock-input
+                    :value="getStockInicial(fila)"
+                    @change="setStockInicial(fila, $event.target.value)"
+                    @keydown="handleStockKeydown($event, idx)"
+                    @focus="$event.target.select()"
+                    class="w-full min-w-[80px] text-center bg-transparent outline-none focus:bg-sky-100 rounded px-1 py-1 text-sm font-semibold text-slate-900"
+                    placeholder="—"
+                  />
+                </td>
                 <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getFabricado(fila) }}</td>
                 <td class="px-3 py-2 text-center text-sm font-semibold text-slate-700">{{ getSalidasPedidos(fila) ?? '—' }}</td>
                 <td class="p-0.5 bg-amber-50">
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
+                    data-realidad-input
                     :value="getRealidad(fila)"
                     @change="setRealidad(fila, $event.target.value)"
+                    @keydown="handleRealidadKeydown($event, idx)"
+                    @focus="$event.target.select()"
                     class="w-full min-w-[80px] text-center bg-transparent outline-none focus:bg-amber-100 rounded px-1 py-1 text-sm font-semibold text-slate-900"
                     placeholder="—"
                   />
@@ -370,7 +443,7 @@ watch(fecha, cargarDatos, { immediate: true })
                 <td class="p-0.5 bg-amber-50 border-b border-slate-100">
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
                     v-model.number="pedidoLidl.cantidad"
                     class="w-full min-w-[80px] text-center bg-transparent outline-none focus:bg-amber-100 rounded px-1 py-1 text-sm font-semibold text-slate-900"
                     placeholder="0"
