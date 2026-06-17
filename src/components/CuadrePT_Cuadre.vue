@@ -194,7 +194,7 @@ async function cargarFabricado() {
   const codes = [...new Set(FILAS.map(f => f.materialSap))]
   const { data, error } = await supabaseOrigen
     .from('ordenes_fabricacion')
-    .select('material_sap, cliente, ud_fabricar')
+    .select('material_sap, cliente, cajas')
     .eq('fecha_produccion', fecha.value)
     .in('material_sap', codes)
   if (error) throw error
@@ -208,7 +208,7 @@ async function cargarFabricado() {
     )
     if (!fila) continue
 
-    const valor = Number(row.ud_fabricar)
+    const valor = Number(row.cajas)
     if (Number.isNaN(valor)) continue
 
     const k = rowKey(fila)
