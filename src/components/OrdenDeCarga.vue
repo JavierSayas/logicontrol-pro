@@ -294,7 +294,7 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
       font: 'helvetica',
       fontSize: 8,
       cellPadding: 1.2,
-      overflow: 'ellipsize',
+      overflow: 'linebreak',
       valign: 'middle',
       minCellHeight: 6,
       lineWidth: 0.1,
@@ -324,11 +324,6 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
       fillColor: [240, 244, 248],
     },
   });
-
-  const finalY = doc.lastAutoTable.finalY || 40;
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL HUECOS: ${totalHuecos}`, 14, finalY + 10);
 
   await addTransportistasPages(doc, datosParaPDF);
 
