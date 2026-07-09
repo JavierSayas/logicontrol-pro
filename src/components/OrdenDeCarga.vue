@@ -13,69 +13,70 @@ async function addTransportistasPages(doc, datosParaPDF) {
   const destinos = [...new Set(datosParaPDF.map(f => f.nombreDestino).filter(Boolean))];
   if (destinos.length === 0) return;
 
-  const { data: matches, error: errMatch } = await supabaseOrigen
+  const { data: plats, error: errPlats } = await supabaseOrigen
     .from('plataformas')
-    .select('empresa_transporte')
+    .select('empresa_transporte, nombre, direccion, limite_hora_entrega')
     .in('nombre_csv', destinos)
-    .eq('activo', true);
+    .eq('activo', true)
+    .order('empresa_transporte')
+    .order('nombre');
 
-  if (errMatch) throw errMatch;
+  if (errPlats) throw errPlats;
+  if (!plats || plats.length === 0) return;
 
-  const empresas = [...new Set((matches || []).map(p => p.empresa_transporte).filter(Boolean))].sort();
-  if (empresas.length === 0) return;
+  const empresas = [...new Set(plats.map(p => p.empresa_transporte).filter(Boolean))];
 
-  for (const empresa of empresas) {
-    const { data: plats, error: errPlats } = await supabaseOrigen
-      .from('plataformas')
-      .select('nombre, direccion, limite_hora_entrega')
-      .eq('empresa_transporte', empresa)
-      .eq('activo', true)
-      .order('nombre');
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TRANSPORTISTAS Y PLATAFORMAS', 14, 15);
 
-    if (errPlats) throw errPlats;
-    if (!plats || plats.length === 0) continue;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${empresas.length} transportistas · ${plats.length} plataformas`, 14, 22);
 
-    doc.addPage();
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TRANSPORTISTA: ${empresa}`, 14, 15);
+  let empresaPrevia = null;
+  const body = plats.map(p => {
+    const empresa = p.empresa_transporte || '';
+    const mostrarEmpresa = empresa !== empresaPrevia;
+    empresaPrevia = empresa;
+    return [
+      mostrarEmpresa ? empresa : '',
+      p.nombre || '',
+      p.direccion || '',
+      p.limite_hora_entrega ? String(p.limite_hora_entrega).slice(0, 5) : '',
+    ];
+  });
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${plats.length} plataformas`, 14, 22);
-
-    autoTable(doc, {
-      startY: 28,
-      head: [['Plataforma', 'Dirección', 'Hora límite entrega']],
-      body: plats.map(p => [
-        p.nombre || '',
-        p.direccion || '',
-        p.limite_hora_entrega ? String(p.limite_hora_entrega).slice(0, 5) : '',
-      ]),
-      margin: { top: 28, right: 14, bottom: 14, left: 14 },
-      styles: {
-        font: 'helvetica',
-        fontSize: 9,
-        cellPadding: 3,
-        overflow: 'linebreak',
-      },
-      columnStyles: {
-        0: { cellWidth: 55, fontStyle: 'bold' },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 28, halign: 'center' },
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 9,
-        halign: 'left',
-      },
-      alternateRowStyles: {
-        fillColor: [240, 244, 248],
-      },
-    });
-  }
+  autoTable(doc, {
+    startY: 28,
+    head: [['Transportista', 'Plataforma', 'Dirección', 'Hora límite']],
+    body,
+    margin: { top: 28, right: 14, bottom: 14, left: 14 },
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: 1.8,
+      overflow: 'linebreak',
+      valign: 'middle',
+    },
+    columnStyles: {
+      0: { cellWidth: 48, fontStyle: 'bold' },
+      1: { cellWidth: 62 },
+      2: { cellWidth: 135 },
+      3: { cellWidth: 24, halign: 'center' },
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'left',
+    },
+    alternateRowStyles: {
+      fillColor: [240, 244, 248],
+    },
+  });
 }
 
 const store = useLogisticsStore();
@@ -95,6 +96,7 @@ const COLUMNAS = [
   { key: 'transporte',       label: 'Transporte',          width: 'w-[8%]',  editable: false },
   { key: 'numeroEntrega',    label: 'Nº Entrega',          width: 'w-[8%]',  editable: false },
   { key: 'huecos',           label: 'Huecos',              width: 'w-[5%]',  editable: true },
+  { key: 'retornable',       label: 'Retorn.',             width: 'w-[5%]',  editable: true },
 ];
 
 const ordenSAP = [
@@ -119,17 +121,292 @@ function showToast(message, type = 'success') {
 }
 
 const CAJAS_POR_HUECO_LIDL = 96;
+const CAJAS_POR_HUECO_ALDI_CILINDRO = 88;
+const CAJAS_POR_HUECO_ALDI_COCO = 112;
 
-function esPlataformaLidl(nombreDestino) {
-  return String(nombreDestino || '').trim().toUpperCase().startsWith('LIDL');
+function normalizaTexto(txt) {
+  return String(txt ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toUpperCase();
 }
 
-function calcularHuecosLidl(cantidad) {
+function clienteDeDestino(nombreDestino) {
+  const d = normalizaTexto(nombreDestino);
+  if (d.startsWith('LIDL')) return 'LIDL';
+  if (d.includes('CORTE INGL')) return 'ECI';
+  if (d.includes('AMETLLER')) return 'CASA_AMETLLER';
+  if (d.includes('CONSUM')) return 'CONSUM';
+  if (d.includes('ALDI')) return 'ALDI';
+  return 'OTRO';
+}
+
+function huecosPorCajas(cantidad, cajasPorHueco) {
   const n = parseFloat(String(cantidad ?? '').replace(',', '.')) || 0;
-  return String(Math.max(1, Math.ceil(n / CAJAS_POR_HUECO_LIDL)));
+  return Math.max(1, Math.ceil(n / cajasPorHueco));
 }
 
-function handlePaste(event) {
+function huecosAldi(denominacion, cantidad) {
+  const d = normalizaTexto(denominacion);
+  const esCilindro = d.includes('CILINDRO') && (d.includes('ALDI') || d.includes('07X540'));
+  const esCoco = d.includes('COCO') && (d.includes('ALDI') || d.includes('06X150'));
+  if (esCilindro) return huecosPorCajas(cantidad, CAJAS_POR_HUECO_ALDI_CILINDRO);
+  if (esCoco) return huecosPorCajas(cantidad, CAJAS_POR_HUECO_ALDI_COCO);
+  return 1;
+}
+
+function asignarHuecos(filas) {
+  const clientesOtroVistos = new Set();
+
+  for (const fila of filas) {
+    const cliente = clienteDeDestino(fila.nombreDestino);
+
+    if (cliente === 'LIDL') {
+      fila.huecos = String(huecosPorCajas(fila.cantidadPedido, CAJAS_POR_HUECO_LIDL));
+    } else if (cliente === 'ECI' || cliente === 'CASA_AMETLLER' || cliente === 'CONSUM') {
+      fila.huecos = '1';
+    } else if (cliente === 'ALDI') {
+      fila.huecos = String(huecosAldi(fila.denominacion, fila.cantidadPedido));
+    } else {
+      const clave = normalizaTexto(fila.nombreDestino);
+      if (clientesOtroVistos.has(clave)) {
+        fila.huecos = '0';
+      } else {
+        clientesOtroVistos.add(clave);
+        fila.huecos = '1';
+      }
+    }
+
+    if (fila.retornable === undefined) fila.retornable = false;
+  }
+
+  return filas;
+}
+
+function esPaletRetornable(tipoPalet) {
+  const t = normalizaTexto(tipoPalet);
+  return t.includes('1200X800 EUROPEO');
+}
+
+const HORA_RECOGIDA_DEFECTO = '17:00-20:00';
+
+function limpiarTipoPalet(tipoPalet) {
+  return String(tipoPalet || '').replace(/^\s*\d+\s*/, '').trim();
+}
+
+async function obtenerLimitesEntrega(destinos) {
+  const claves = [...new Set(destinos.map(d => normalizaTexto(d)).filter(Boolean))];
+  if (claves.length === 0) return {};
+
+  const { data, error: errPlat } = await supabaseOrigen
+    .from('plataformas')
+    .select('nombre_csv, limite_hora_entrega')
+    .eq('activo', true);
+
+  if (errPlat) throw errPlat;
+
+  const mapa = {};
+  for (const p of (data || [])) {
+    const clave = normalizaTexto(p.nombre_csv);
+    if (clave && p.limite_hora_entrega) {
+      mapa[clave] = String(p.limite_hora_entrega).slice(0, 5);
+    }
+  }
+  return mapa;
+}
+
+async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
+  const doc = new jsPDF({ orientation: 'landscape' });
+
+  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const totalHuecos = datosParaPDF.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
+
+  const limites = await obtenerLimitesEntrega(datosParaPDF.map(f => f.nombreDestino));
+
+  const grupos = new Map();
+  for (const fila of datosParaPDF) {
+    const clave = normalizaTexto(fila.nombreDestino);
+    if (!grupos.has(clave)) {
+      grupos.set(clave, {
+        nombreDestino: fila.nombreDestino || '',
+        clave,
+        huecos: 0,
+        palletsEuropeos: 0,
+        fechaRecogida: '',
+        tipos: new Set(),
+        transportes: new Set(),
+        entregas: new Set(),
+      });
+    }
+    const g = grupos.get(clave);
+    const huecosFila = parseInt(fila.huecos) || 0;
+    g.huecos += huecosFila;
+    if (fila.retornable) g.palletsEuropeos += huecosFila;
+    if (!g.fechaRecogida && fila.salidaMercancias) g.fechaRecogida = fila.salidaMercancias;
+    const tp = limpiarTipoPalet(fila.tipoPalet);
+    if (tp) g.tipos.add(tp);
+    if (fila.transporte) g.transportes.add(fila.transporte);
+    if (fila.numeroEntrega) g.entregas.add(fila.numeroEntrega);
+  }
+  const filasAgrupadas = [...grupos.values()];
+
+  doc.setFontSize(16);
+  doc.text(titulo, 14, 15);
+
+  doc.setFontSize(10);
+  doc.text(`Fecha de carga: ${fechaFormatada}`, 14, 25);
+  doc.text(`Total huecos: ${totalHuecos}`, 14, 32);
+
+  const columnasPDF = [
+    { header: 'Tipo Palet', dataKey: 'tipoPalet' },
+    { header: 'Huecos', dataKey: 'huecos' },
+    { header: 'Fecha Recogida', dataKey: 'fechaRecogida' },
+    { header: 'Hora Recogida', dataKey: 'horaRecogida' },
+    { header: 'Destino', dataKey: 'destino' },
+    { header: 'Límite Entrega', dataKey: 'limiteEntrega' },
+    { header: 'Nº Transporte', dataKey: 'transporte' },
+    { header: 'Pallets Europeos', dataKey: 'palletsEuropeos' },
+    { header: 'Observaciones', dataKey: 'observaciones' },
+  ];
+
+  autoTable(doc, {
+    columns: columnasPDF,
+    body: filasAgrupadas.map(g => ({
+      tipoPalet: [...g.tipos].join(', '),
+      huecos: g.huecos || '',
+      fechaRecogida: g.fechaRecogida || '',
+      horaRecogida: HORA_RECOGIDA_DEFECTO,
+      destino: g.nombreDestino,
+      limiteEntrega: limites[g.clave] || '',
+      transporte: [...g.transportes].join(', '),
+      palletsEuropeos: g.palletsEuropeos || '',
+      observaciones: [...g.entregas].join(', '),
+    })),
+    startY: 38,
+    margin: { top: 38, right: 14, bottom: 12, left: 14 },
+    styles: {
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: 1.2,
+      overflow: 'ellipsize',
+      valign: 'middle',
+      minCellHeight: 6,
+      lineWidth: 0.1,
+    },
+    columnStyles: {
+      tipoPalet: { cellWidth: 40 },
+      huecos: { cellWidth: 18, halign: 'center' },
+      fechaRecogida: { cellWidth: 28, halign: 'center' },
+      horaRecogida: { cellWidth: 30, halign: 'center' },
+      destino: { cellWidth: 45 },
+      limiteEntrega: { cellWidth: 26, halign: 'center' },
+      transporte: { cellWidth: 26, halign: 'center' },
+      palletsEuropeos: { cellWidth: 26, halign: 'center' },
+      observaciones: { cellWidth: 30 },
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      overflow: 'linebreak',
+      fontSize: 8,
+      halign: 'left',
+      valign: 'middle',
+      cellPadding: 1.6,
+    },
+    alternateRowStyles: {
+      fillColor: [240, 244, 248],
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY || 40;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL HUECOS: ${totalHuecos}`, 14, finalY + 10);
+
+  await addTransportistasPages(doc, datosParaPDF);
+
+  doc.save(nombreArchivo);
+  showToast(`PDF descargado: ${nombreArchivo}`, 'success');
+}
+
+function tokenClienteProducto(nombreDestino) {
+  const cliente = clienteDeDestino(nombreDestino);
+  const mapa = {
+    CONSUM: 'CONSUM',
+    ALDI: 'ALDI',
+    LIDL: 'LIDL',
+    ECI: 'CORTE',
+    CASA_AMETLLER: 'AMETLLER',
+  };
+  return mapa[cliente] || '';
+}
+
+async function marcarRetornables(filas) {
+  const denoms = [...new Set(filas.map(f => normalizaTexto(f.denominacion)).filter(Boolean))];
+  if (denoms.length === 0) return;
+
+  const { data, error: errProd } = await supabaseOrigen
+    .from('productos')
+    .select('nombre_sap, cliente, cliente_alias, tipo_palet')
+    .eq('en_activo', true)
+    .eq('pendiente_lanzar', false);
+
+  if (errProd) {
+    showToast('No se pudo consultar el tipo de palet: ' + errProd.message, 'error');
+    return;
+  }
+
+  const porDenom = new Map();
+  for (const p of (data || [])) {
+    const clave = normalizaTexto(p.nombre_sap);
+    if (!clave) continue;
+    if (!porDenom.has(clave)) porDenom.set(clave, []);
+    porDenom.get(clave).push({
+      clienteNorm: normalizaTexto(`${p.cliente || ''} ${p.cliente_alias || ''}`),
+      tipoPalet: p.tipo_palet || '',
+      retornable: esPaletRetornable(p.tipo_palet),
+    });
+  }
+
+  for (const fila of filas) {
+    const clave = normalizaTexto(fila.denominacion);
+    const rows = porDenom.get(clave);
+
+    if (!rows || rows.length === 0) {
+      fila.tipoPalet = '';
+      fila.retornable = false;
+      fila.retornableInfo = 'sin-datos';
+      continue;
+    }
+
+    let candidatas = rows;
+    const tiposDistintos = new Set(rows.map(r => r.tipoPalet));
+
+    if (tiposDistintos.size > 1) {
+      const token = tokenClienteProducto(fila.nombreDestino);
+      const filtradas = token ? rows.filter(r => r.clienteNorm.includes(token)) : [];
+      if (filtradas.length > 0) candidatas = filtradas;
+    }
+
+    const tiposCandidatas = new Set(candidatas.map(r => r.tipoPalet));
+    const resuelta = candidatas[0];
+
+    fila.tipoPalet = resuelta.tipoPalet;
+    fila.retornable = resuelta.retornable;
+    fila.retornableInfo = tiposCandidatas.size > 1
+      ? 'ambiguo'
+      : (tiposDistintos.size > 1 ? 'auto-cliente' : 'auto');
+  }
+}
+
+async function handlePaste(event) {
   event.preventDefault();
   error.value = '';
 
@@ -158,10 +435,6 @@ function handlePaste(event) {
       }
     });
 
-    fila.huecos = esPlataformaLidl(fila.nombreDestino)
-      ? calcularHuecosLidl(fila.cantidadPedido)
-      : '';
-
     if (Object.values(fila).some(v => v !== '')) {
       filas.push(fila);
     }
@@ -173,9 +446,13 @@ function handlePaste(event) {
     return;
   }
 
+  asignarHuecos(filas);
+
   store.setOrdenCarga(filas);
   error.value = '';
   showToast(`${filas.length} filas cargadas correctamente`, 'success');
+
+  await marcarRetornables(store.ordenCargaData);
 }
 
 function limpiar() {
@@ -228,89 +505,7 @@ async function generarPDF() {
       return;
     }
 
-    const doc = new jsPDF();
-    const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-
-    const totalHuecos = datosParaPDF.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
-
-    doc.setFontSize(16);
-    doc.text('ORDEN DE CARGA DHL', 14, 15);
-
-    doc.setFontSize(10);
-    doc.text(`Fecha de carga: ${fechaFormatada}`, 14, 25);
-    doc.text(`Total huecos: ${totalHuecos}`, 14, 32);
-
-    const columnasPDF = [
-      { header: 'Nombre Destino', dataKey: 'nombreDestino' },
-      { header: 'Fecha Entrega', dataKey: 'fechaEntrega' },
-      { header: 'Fecha Carga', dataKey: 'salidaMercancias' },
-      { header: 'Denominación', dataKey: 'denominacion' },
-      { header: 'Cantidad', dataKey: 'cantidadPedido' },
-      { header: 'Agente Servicios', dataKey: 'agenteServicios' },
-      { header: 'Transporte', dataKey: 'transporte' },
-      { header: 'Huecos', dataKey: 'huecos' },
-    ];
-
-    autoTable(doc, {
-      columns: columnasPDF,
-      body: datosParaPDF.map(fila => ({
-        nombreDestino: fila.nombreDestino || '',
-        fechaEntrega: fila.fechaEntrega || '',
-        salidaMercancias: fila.salidaMercancias || '',
-        denominacion: fila.denominacion || '',
-        cantidadPedido: fila.cantidadPedido || '',
-        agenteServicios: fila.agenteServicios || '',
-        transporte: fila.transporte || '',
-        huecos: fila.huecos || '',
-      })),
-      startY: 40,
-      margin: { top: 40, right: 14, bottom: 14, left: 14 },
-      styles: {
-        font: 'helvetica',
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        cellWidth: 'wrap',
-      },
-      columnStyles: {
-        nombreDestino: { cellWidth: 35 },
-        fechaEntrega: { cellWidth: 20 },
-        salidaMercancias: { cellWidth: 20 },
-        denominacion: { cellWidth: 30 },
-        cantidadPedido: { cellWidth: 13 },
-        agenteServicios: { cellWidth: 28 },
-        transporte: { cellWidth: 16 },
-        huecos: { cellWidth: 12, halign: 'center' },
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        overflow: 'linebreak',
-        fontSize: 8,
-        halign: 'left',
-        valign: 'middle',
-        cellPadding: 3,
-      },
-      alternateRowStyles: {
-        fillColor: [240, 244, 248],
-      },
-    });
-
-    const finalY = doc.lastAutoTable.finalY || 40;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL HUECOS: ${totalHuecos}`, 14, finalY + 10);
-
-    await addTransportistasPages(doc, datosParaPDF);
-
-    const nombreArchivo = `DHL001_${store.fecha}.pdf`;
-    doc.save(nombreArchivo);
-    showToast(`PDF DHL001 descargado: ${nombreArchivo}`, 'success');
+    await generarPDFOrden('ORDEN DE CARGA DHL', datosParaPDF, `DHL001_${store.fecha}.pdf`);
   } catch (err) {
     showToast('Error generando PDF: ' + err.message, 'error');
   }
@@ -376,89 +571,7 @@ async function generarPDFInnnova() {
       return;
     }
 
-    const doc = new jsPDF();
-    const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-
-    const totalHuecos = datosParaPDF.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
-
-    doc.setFontSize(16);
-    doc.text('ORDEN DE CARGA INNOVA', 14, 15);
-
-    doc.setFontSize(10);
-    doc.text(`Fecha de carga: ${fechaFormatada}`, 14, 25);
-    doc.text(`Total huecos: ${totalHuecos}`, 14, 32);
-
-    const columnasPDF = [
-      { header: 'Nombre Destino', dataKey: 'nombreDestino' },
-      { header: 'Fecha Entrega', dataKey: 'fechaEntrega' },
-      { header: 'Fecha Carga', dataKey: 'salidaMercancias' },
-      { header: 'Denominación', dataKey: 'denominacion' },
-      { header: 'Cantidad', dataKey: 'cantidadPedido' },
-      { header: 'Agente Servicios', dataKey: 'agenteServicios' },
-      { header: 'Transporte', dataKey: 'transporte' },
-      { header: 'Huecos', dataKey: 'huecos' },
-    ];
-
-    autoTable(doc, {
-      columns: columnasPDF,
-      body: datosParaPDF.map(fila => ({
-        nombreDestino: fila.nombreDestino || '',
-        fechaEntrega: fila.fechaEntrega || '',
-        salidaMercancias: fila.salidaMercancias || '',
-        denominacion: fila.denominacion || '',
-        cantidadPedido: fila.cantidadPedido || '',
-        agenteServicios: fila.agenteServicios || '',
-        transporte: fila.transporte || '',
-        huecos: fila.huecos || '',
-      })),
-      startY: 40,
-      margin: { top: 40, right: 14, bottom: 14, left: 14 },
-      styles: {
-        font: 'helvetica',
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        cellWidth: 'wrap',
-      },
-      columnStyles: {
-        nombreDestino: { cellWidth: 35 },
-        fechaEntrega: { cellWidth: 20 },
-        salidaMercancias: { cellWidth: 20 },
-        denominacion: { cellWidth: 30 },
-        cantidadPedido: { cellWidth: 13 },
-        agenteServicios: { cellWidth: 28 },
-        transporte: { cellWidth: 16 },
-        huecos: { cellWidth: 12, halign: 'center' },
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        overflow: 'linebreak',
-        fontSize: 8,
-        halign: 'left',
-        valign: 'middle',
-        cellPadding: 3,
-      },
-      alternateRowStyles: {
-        fillColor: [240, 244, 248],
-      },
-    });
-
-    const finalY = doc.lastAutoTable.finalY || 40;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL HUECOS: ${totalHuecos}`, 14, finalY + 10);
-
-    await addTransportistasPages(doc, datosParaPDF);
-
-    const nombreArchivo = `INNOVA_${store.fecha}.pdf`;
-    doc.save(nombreArchivo);
-    showToast(`PDF INNOVA descargado: ${nombreArchivo}`, 'success');
+    await generarPDFOrden('ORDEN DE CARGA INNOVA', datosParaPDF, `INNOVA_${store.fecha}.pdf`);
   } catch (err) {
     showToast('Error generando PDF: ' + err.message, 'error');
   }
@@ -474,89 +587,7 @@ async function generarPDFMosca() {
       return;
     }
 
-    const doc = new jsPDF();
-    const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-
-    const totalHuecos = datosParaPDF.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
-
-    doc.setFontSize(16);
-    doc.text('ORDEN DE CARGA MOSCA', 14, 15);
-
-    doc.setFontSize(10);
-    doc.text(`Fecha de carga: ${fechaFormatada}`, 14, 25);
-    doc.text(`Total huecos: ${totalHuecos}`, 14, 32);
-
-    const columnasPDF = [
-      { header: 'Nombre Destino', dataKey: 'nombreDestino' },
-      { header: 'Fecha Entrega', dataKey: 'fechaEntrega' },
-      { header: 'Fecha Carga', dataKey: 'salidaMercancias' },
-      { header: 'Denominación', dataKey: 'denominacion' },
-      { header: 'Cantidad', dataKey: 'cantidadPedido' },
-      { header: 'Agente Servicios', dataKey: 'agenteServicios' },
-      { header: 'Transporte', dataKey: 'transporte' },
-      { header: 'Huecos', dataKey: 'huecos' },
-    ];
-
-    autoTable(doc, {
-      columns: columnasPDF,
-      body: datosParaPDF.map(fila => ({
-        nombreDestino: fila.nombreDestino || '',
-        fechaEntrega: fila.fechaEntrega || '',
-        salidaMercancias: fila.salidaMercancias || '',
-        denominacion: fila.denominacion || '',
-        cantidadPedido: fila.cantidadPedido || '',
-        agenteServicios: fila.agenteServicios || '',
-        transporte: fila.transporte || '',
-        huecos: fila.huecos || '',
-      })),
-      startY: 40,
-      margin: { top: 40, right: 14, bottom: 14, left: 14 },
-      styles: {
-        font: 'helvetica',
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        cellWidth: 'wrap',
-      },
-      columnStyles: {
-        nombreDestino: { cellWidth: 35 },
-        fechaEntrega: { cellWidth: 20 },
-        salidaMercancias: { cellWidth: 20 },
-        denominacion: { cellWidth: 30 },
-        cantidadPedido: { cellWidth: 13 },
-        agenteServicios: { cellWidth: 28 },
-        transporte: { cellWidth: 16 },
-        huecos: { cellWidth: 12, halign: 'center' },
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        overflow: 'linebreak',
-        fontSize: 8,
-        halign: 'left',
-        valign: 'middle',
-        cellPadding: 3,
-      },
-      alternateRowStyles: {
-        fillColor: [240, 244, 248],
-      },
-    });
-
-    const finalY = doc.lastAutoTable.finalY || 40;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL HUECOS: ${totalHuecos}`, 14, finalY + 10);
-
-    await addTransportistasPages(doc, datosParaPDF);
-
-    const nombreArchivo = `MOSCA_${store.fecha}.pdf`;
-    doc.save(nombreArchivo);
-    showToast(`PDF MOSCA descargado: ${nombreArchivo}`, 'success');
+    await generarPDFOrden('ORDEN DE CARGA MOSCA', datosParaPDF, `MOSCA_${store.fecha}.pdf`);
   } catch (err) {
     showToast('Error generando PDF: ' + err.message, 'error');
   }
@@ -676,6 +707,7 @@ async function generarPDFMosca() {
                   :class="{
                     'break-words': col.key === 'nombreDestino' || col.key === 'denominacion',
                     'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos',
+                    'bg-slate-50/80': col.key === 'retornable',
                   }"
                 >
                   <template v-if="col.editable && col.key === 'huecos'">
@@ -687,6 +719,19 @@ async function generarPDFMosca() {
                       class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
                     />
+                  </template>
+                  <template v-else-if="col.editable && col.key === 'retornable'">
+                    <div class="flex items-center justify-center">
+                      <input
+                        v-model="fila.retornable"
+                        type="checkbox"
+                        :title="fila.retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (fila.retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (fila.retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable'))"
+                        :class="[
+                          'w-5 h-5 rounded cursor-pointer accent-emerald-600',
+                          fila.retornableInfo === 'ambiguo' || fila.retornableInfo === 'sin-datos' ? 'ring-1 ring-amber-300' : '',
+                        ]"
+                      />
+                    </div>
                   </template>
                   <template v-else>
                     <span :class="{
