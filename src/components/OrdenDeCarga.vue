@@ -5,13 +5,14 @@ import { supabaseOrigen } from '../lib/supabase';
 import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ExcelJS from 'exceljs';
 import Card from './ui/Card.vue';
 import Button from './ui/Button.vue';
 import PageHeader from './ui/PageHeader.vue';
 
-async function addTransportistasPages(doc, datosParaPDF) {
-  const destinos = [...new Set(datosParaPDF.map(f => f.nombreDestino).filter(Boolean))];
-  if (destinos.length === 0) return;
+async function obtenerPlataformasOrden(datosParaOrden) {
+  const destinos = [...new Set(datosParaOrden.map(f => f.nombreDestino).filter(Boolean))];
+  if (destinos.length === 0) return [];
 
   const { data: plats, error: errPlats } = await supabaseOrigen
     .from('plataformas')
@@ -22,7 +23,12 @@ async function addTransportistasPages(doc, datosParaPDF) {
     .order('nombre');
 
   if (errPlats) throw errPlats;
-  if (!plats || plats.length === 0) return;
+  return plats || [];
+}
+
+async function addTransportistasPages(doc, datosParaPDF) {
+  const plats = await obtenerPlataformasOrden(datosParaPDF);
+  if (plats.length === 0) return;
 
   const empresas = [...new Set(plats.map(p => p.empresa_transporte).filter(Boolean))];
 
@@ -216,21 +222,25 @@ async function obtenerLimitesEntrega(destinos) {
   return mapa;
 }
 
-async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
-  const doc = new jsPDF({ orientation: 'landscape' });
+const COLUMNAS_ORDEN = [
+  { header: 'Tipo Palet', dataKey: 'tipoPalet' },
+  { header: 'Huecos', dataKey: 'huecos' },
+  { header: 'Fecha Recogida', dataKey: 'fechaRecogida' },
+  { header: 'Hora Recogida', dataKey: 'horaRecogida' },
+  { header: 'Destino', dataKey: 'destino' },
+  { header: 'Fecha Entrega', dataKey: 'fechaEntrega' },
+  { header: 'Límite Entrega', dataKey: 'limiteEntrega' },
+  { header: 'Nº Transporte', dataKey: 'transporte' },
+  { header: 'Pallets Europeos', dataKey: 'palletsEuropeos' },
+  { header: 'Observaciones', dataKey: 'observaciones' },
+];
 
-  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-
-  const totalHuecos = datosParaPDF.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
-
-  const limites = await obtenerLimitesEntrega(datosParaPDF.map(f => f.nombreDestino));
+async function prepararFilasOrden(datosParaOrden) {
+  const totalHuecos = datosParaOrden.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
+  const limites = await obtenerLimitesEntrega(datosParaOrden.map(f => f.nombreDestino));
 
   const grupos = new Map();
-  for (const fila of datosParaPDF) {
+  for (const fila of datosParaOrden) {
     const clave = normalizaTexto(fila.nombreDestino);
     if (!grupos.has(clave)) {
       grupos.set(clave, {
@@ -240,6 +250,7 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
         palletsEuropeos: 0,
         fechaRecogida: '',
         tipos: new Set(),
+        fechasEntrega: new Set(),
         transportes: new Set(),
         entregas: new Set(),
       });
@@ -251,10 +262,37 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
     if (!g.fechaRecogida && fila.salidaMercancias) g.fechaRecogida = fila.salidaMercancias;
     const tp = limpiarTipoPalet(fila.tipoPalet);
     if (tp) g.tipos.add(tp);
+    if (fila.fechaEntrega) g.fechasEntrega.add(fila.fechaEntrega);
     if (fila.transporte) g.transportes.add(fila.transporte);
     if (fila.numeroEntrega) g.entregas.add(fila.numeroEntrega);
   }
-  const filasAgrupadas = [...grupos.values()];
+
+  const filas = [...grupos.values()].map(g => ({
+    tipoPalet: [...g.tipos].join(', '),
+    huecos: g.huecos,
+    fechaRecogida: g.fechaRecogida || '',
+    horaRecogida: HORA_RECOGIDA_DEFECTO,
+    destino: g.nombreDestino,
+    fechaEntrega: [...g.fechasEntrega].join(', '),
+    limiteEntrega: limites[g.clave] || '',
+    transporte: [...g.transportes].join(', '),
+    palletsEuropeos: g.palletsEuropeos,
+    observaciones: [...g.entregas].join(', '),
+  }));
+
+  return { filas, totalHuecos };
+}
+
+async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
+  const doc = new jsPDF({ orientation: 'landscape' });
+
+  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const { filas, totalHuecos } = await prepararFilasOrden(datosParaPDF);
 
   doc.setFontSize(16);
   doc.text(titulo, 14, 15);
@@ -263,30 +301,19 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
   doc.text(`Fecha de carga: ${fechaFormatada}`, 14, 25);
   doc.text(`Total huecos: ${totalHuecos}`, 14, 32);
 
-  const columnasPDF = [
-    { header: 'Tipo Palet', dataKey: 'tipoPalet' },
-    { header: 'Huecos', dataKey: 'huecos' },
-    { header: 'Fecha Recogida', dataKey: 'fechaRecogida' },
-    { header: 'Hora Recogida', dataKey: 'horaRecogida' },
-    { header: 'Destino', dataKey: 'destino' },
-    { header: 'Límite Entrega', dataKey: 'limiteEntrega' },
-    { header: 'Nº Transporte', dataKey: 'transporte' },
-    { header: 'Pallets Europeos', dataKey: 'palletsEuropeos' },
-    { header: 'Observaciones', dataKey: 'observaciones' },
-  ];
-
   autoTable(doc, {
-    columns: columnasPDF,
-    body: filasAgrupadas.map(g => ({
-      tipoPalet: [...g.tipos].join(', '),
-      huecos: g.huecos || '',
-      fechaRecogida: g.fechaRecogida || '',
-      horaRecogida: HORA_RECOGIDA_DEFECTO,
-      destino: g.nombreDestino,
-      limiteEntrega: limites[g.clave] || '',
-      transporte: [...g.transportes].join(', '),
-      palletsEuropeos: g.palletsEuropeos || '',
-      observaciones: [...g.entregas].join(', '),
+    columns: COLUMNAS_ORDEN,
+    body: filas.map(f => ({
+      tipoPalet: f.tipoPalet,
+      huecos: f.huecos || '',
+      fechaRecogida: f.fechaRecogida,
+      horaRecogida: f.horaRecogida,
+      destino: f.destino,
+      fechaEntrega: f.fechaEntrega,
+      limiteEntrega: f.limiteEntrega,
+      transporte: f.transporte,
+      palletsEuropeos: f.palletsEuropeos || '',
+      observaciones: f.observaciones,
     })),
     startY: 38,
     margin: { top: 38, right: 14, bottom: 12, left: 14 },
@@ -300,15 +327,16 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
       lineWidth: 0.1,
     },
     columnStyles: {
-      tipoPalet: { cellWidth: 40 },
-      huecos: { cellWidth: 18, halign: 'center' },
-      fechaRecogida: { cellWidth: 28, halign: 'center' },
-      horaRecogida: { cellWidth: 30, halign: 'center' },
-      destino: { cellWidth: 45 },
-      limiteEntrega: { cellWidth: 26, halign: 'center' },
-      transporte: { cellWidth: 26, halign: 'center' },
-      palletsEuropeos: { cellWidth: 26, halign: 'center' },
-      observaciones: { cellWidth: 30 },
+      tipoPalet: { cellWidth: 36 },
+      huecos: { cellWidth: 16, halign: 'center' },
+      fechaRecogida: { cellWidth: 22, halign: 'center' },
+      horaRecogida: { cellWidth: 24, halign: 'center' },
+      destino: { cellWidth: 40 },
+      fechaEntrega: { cellWidth: 22, halign: 'center' },
+      limiteEntrega: { cellWidth: 22, halign: 'center' },
+      transporte: { cellWidth: 22, halign: 'center' },
+      palletsEuropeos: { cellWidth: 22, halign: 'center' },
+      observaciones: { cellWidth: 23 },
     },
     headStyles: {
       fillColor: [30, 41, 59],
@@ -329,6 +357,123 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
 
   doc.save(nombreArchivo);
   showToast(`PDF descargado: ${nombreArchivo}`, 'success');
+}
+
+function descargarBlob(blob, nombreArchivo) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
+  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const { filas, totalHuecos } = await prepararFilasOrden(datosParaExcel);
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'LogiControl Pro';
+  wb.calcProperties.fullCalcOnLoad = true;
+
+  const ws = wb.addWorksheet('Orden', {
+    views: [{ state: 'frozen', ySplit: 5 }],
+  });
+
+  ws.mergeCells('A1:J1');
+  ws.getCell('A1').value = titulo;
+  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.getCell('A2').value = `Fecha de carga: ${fechaFormatada}`;
+  ws.getCell('A3').value = `Total huecos: ${totalHuecos}`;
+  ws.getCell('A3').font = { bold: true };
+
+  ws.addTable({
+    name: 'OrdenINNOVA',
+    ref: 'A5',
+    headerRow: true,
+    totalsRow: true,
+    style: { theme: 'TableStyleMedium2', showRowStripes: true },
+    columns: COLUMNAS_ORDEN.map((c, i) => {
+      const col = { name: c.header, filterButton: true };
+      if (c.dataKey === 'huecos' || c.dataKey === 'palletsEuropeos') {
+        col.totalsRowFunction = 'sum';
+      } else if (i === 0) {
+        col.totalsRowLabel = 'TOTAL';
+      }
+      return col;
+    }),
+    rows: filas.map(f => [
+      f.tipoPalet,
+      f.huecos,
+      f.fechaRecogida,
+      f.horaRecogida,
+      f.destino,
+      f.fechaEntrega,
+      f.limiteEntrega,
+      f.transporte,
+      f.palletsEuropeos,
+      f.observaciones,
+    ]),
+  });
+
+  const anchosOrden = [28, 8, 14, 14, 30, 14, 14, 14, 16, 24];
+  anchosOrden.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  [2, 3, 4, 6, 7, 8, 9].forEach(colIdx => { ws.getColumn(colIdx).alignment = { horizontal: 'center' }; });
+
+  const totalEuropeos = filas.reduce((sum, f) => sum + (Number(f.palletsEuropeos) || 0), 0);
+  const totalsRowNum = 6 + filas.length;
+  ws.getCell(`B${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Huecos])', result: totalHuecos };
+  ws.getCell(`I${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Pallets Europeos])', result: totalEuropeos };
+
+  const plats = await obtenerPlataformasOrden(datosParaExcel);
+  if (plats.length > 0) {
+    const wsPlat = wb.addWorksheet('Plataformas', {
+      views: [{ state: 'frozen', ySplit: 1 }],
+    });
+
+    let empresaPrevia = null;
+    const rowsPlat = plats.map(p => {
+      const empresa = p.empresa_transporte || '';
+      const mostrarEmpresa = empresa !== empresaPrevia;
+      empresaPrevia = empresa;
+      return [
+        mostrarEmpresa ? empresa : '',
+        p.nombre || '',
+        p.direccion || '',
+        p.limite_hora_entrega ? String(p.limite_hora_entrega).slice(0, 5) : '',
+      ];
+    });
+
+    wsPlat.addTable({
+      name: 'Plataformas',
+      ref: 'A1',
+      headerRow: true,
+      style: { theme: 'TableStyleMedium2', showRowStripes: true },
+      columns: [
+        { name: 'Transportista', filterButton: true },
+        { name: 'Plataforma', filterButton: true },
+        { name: 'Dirección', filterButton: true },
+        { name: 'Hora límite', filterButton: true },
+      ],
+      rows: rowsPlat,
+    });
+
+    [24, 32, 50, 12].forEach((w, i) => { wsPlat.getColumn(i + 1).width = w; });
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  descargarBlob(blob, nombreArchivo);
+  showToast(`Excel descargado: ${nombreArchivo}`, 'success');
 }
 
 function tokenClienteProducto(nombreDestino) {
@@ -546,7 +691,7 @@ async function guardarOrden(tipoCarga = 'DHL001') {
 async function guardarYDescargarPDF(tipo) {
   const generadores = {
     'DHL001': generarPDF,
-    'INNOVA': generarPDFInnnova,
+    'INNOVA': generarExcelInnnova,
     'MOSCA': generarPDFMosca,
   };
   const generar = generadores[tipo];
@@ -556,19 +701,19 @@ async function guardarYDescargarPDF(tipo) {
   if (ok) await generar();
 }
 
-async function generarPDFInnnova() {
+async function generarExcelInnnova() {
   try {
-    const datosParaPDF = filasParaPDFInnnova.value;
+    const datosParaExcel = filasParaPDFInnnova.value;
 
-    if (datosParaPDF.length === 0) {
+    if (datosParaExcel.length === 0) {
       error.value = 'No hay datos INNOVA cargados.';
       showToast('No hay datos INNOVA', 'error');
       return;
     }
 
-    await generarPDFOrden('ORDEN DE CARGA INNOVA', datosParaPDF, `INNOVA_${store.fecha}.pdf`);
+    await generarExcelOrden('ORDEN DE CARGA INNOVA', datosParaExcel, `INNOVA_${store.fecha}.xlsx`);
   } catch (err) {
-    showToast('Error generando PDF: ' + err.message, 'error');
+    showToast('Error generando Excel: ' + err.message, 'error');
   }
 }
 
@@ -622,9 +767,9 @@ async function generarPDFMosca() {
             <FileDown class="w-4 h-4" />
             PDF DHL · {{ cantidadDHL }}
           </Button>
-          <Button v-if="cantidadINNOVA > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('INNOVA')" title="Guardar orden y descargar PDF INNOVA">
+          <Button v-if="cantidadINNOVA > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('INNOVA')" title="Guardar orden y descargar Excel INNOVA">
             <FileDown class="w-4 h-4" />
-            PDF INNOVA · {{ cantidadINNOVA }}
+            Excel INNOVA · {{ cantidadINNOVA }}
           </Button>
           <Button v-if="cantidadMOSCA > 0" variant="success" :disabled="store.loading" @click="guardarYDescargarPDF('MOSCA')" title="Guardar orden y descargar PDF MOSCA">
             <FileDown class="w-4 h-4" />
