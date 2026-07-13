@@ -240,7 +240,7 @@ const COLUMNAS_ORDEN = [
   { header: 'Fecha Entrega', dataKey: 'fechaEntrega' },
   { header: 'Límite Entrega', dataKey: 'limiteEntrega' },
   { header: 'Nº Transporte', dataKey: 'transporte' },
-  { header: 'Pallets Europeos', dataKey: 'palletsEuropeos' },
+  { header: 'Europalets Retornables', dataKey: 'palletsEuropeos' },
   { header: 'Observaciones', dataKey: 'observaciones' },
 ];
 
@@ -447,7 +447,7 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
   const totalEuropeos = filas.reduce((sum, f) => sum + (Number(f.palletsEuropeos) || 0), 0);
   const totalsRowNum = 6 + filas.length;
   ws.getCell(`B${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Huecos])', result: totalHuecos };
-  ws.getCell(`I${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Pallets Europeos])', result: totalEuropeos };
+  ws.getCell(`I${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Europalets Retornables])', result: totalEuropeos };
 
   const plats = await obtenerPlataformasOrden(datosParaExcel);
   if (plats.length > 0) {
