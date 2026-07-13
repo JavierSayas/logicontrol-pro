@@ -416,7 +416,7 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     ref: 'A5',
     headerRow: true,
     totalsRow: true,
-    style: { theme: 'TableStyleMedium3', showRowStripes: true },
+    style: { theme: 'TableStyleMedium2', showRowStripes: true },
     columns: COLUMNAS_ORDEN.map((c, i) => {
       const col = { name: c.header, filterButton: true };
       if (c.dataKey === 'huecos' || c.dataKey === 'palletsEuropeos') {
@@ -443,6 +443,12 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
   const anchosOrden = [28, 8, 14, 14, 30, 14, 14, 14, 16, 24];
   anchosOrden.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   [2, 3, 4, 6, 7, 8, 9].forEach(colIdx => { ws.getColumn(colIdx).alignment = { horizontal: 'center' }; });
+
+  for (let col = 1; col <= COLUMNAS_ORDEN.length; col++) {
+    const cell = ws.getRow(5).getCell(col);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  }
 
   const totalEuropeos = filas.reduce((sum, f) => sum + (Number(f.palletsEuropeos) || 0), 0);
   const totalsRowNum = 6 + filas.length;
