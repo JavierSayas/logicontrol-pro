@@ -148,6 +148,15 @@ function clienteDeDestino(nombreDestino) {
   return 'OTRO';
 }
 
+// Consum Murcia y Consum Valencia se entregan físicamente en la plataforma de
+// Consum en Ribarroja de Túria: Consum hace luego la logística interna a Murcia.
+const NOMBRE_CONSUM_RIBARROJA = 'CONSUM RIBARROJA';
+
+function esConsumMurciaOValencia(nombreDestino) {
+  const d = normalizaTexto(nombreDestino);
+  return d.includes('CONSUM') && (d.includes('MURCIA') || d.includes('VALENCIA'));
+}
+
 function huecosPorCajas(cantidad, cajasPorHueco) {
   const n = parseFloat(String(cantidad ?? '').replace(',', '.')) || 0;
   return Math.max(1, Math.ceil(n / cajasPorHueco));
@@ -235,16 +244,21 @@ const COLUMNAS_ORDEN = [
   { header: 'Observaciones', dataKey: 'observaciones' },
 ];
 
-async function prepararFilasOrden(datosParaOrden) {
+async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = false } = {}) {
   const totalHuecos = datosParaOrden.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
   const limites = await obtenerLimitesEntrega(datosParaOrden.map(f => f.nombreDestino));
 
   const grupos = new Map();
   for (const fila of datosParaOrden) {
-    const clave = normalizaTexto(fila.nombreDestino);
+    const nombreOriginal = fila.nombreDestino || '';
+    const claveOriginal = normalizaTexto(nombreOriginal);
+    const fusionar = fusionarConsumRibarroja && esConsumMurciaOValencia(nombreOriginal);
+    const nombreGrupo = fusionar ? NOMBRE_CONSUM_RIBARROJA : nombreOriginal;
+    const clave = fusionar ? normalizaTexto(NOMBRE_CONSUM_RIBARROJA) : claveOriginal;
+
     if (!grupos.has(clave)) {
       grupos.set(clave, {
-        nombreDestino: fila.nombreDestino || '',
+        nombreDestino: nombreGrupo,
         clave,
         huecos: 0,
         palletsEuropeos: 0,
@@ -253,6 +267,7 @@ async function prepararFilasOrden(datosParaOrden) {
         fechasEntrega: new Set(),
         transportes: new Set(),
         entregas: new Set(),
+        limitesEntrega: new Set(),
       });
     }
     const g = grupos.get(clave);
@@ -265,6 +280,8 @@ async function prepararFilasOrden(datosParaOrden) {
     if (fila.fechaEntrega) g.fechasEntrega.add(fila.fechaEntrega);
     if (fila.transporte) g.transportes.add(fila.transporte);
     if (fila.numeroEntrega) g.entregas.add(fila.numeroEntrega);
+    const limiteOriginal = limites[claveOriginal];
+    if (limiteOriginal) g.limitesEntrega.add(limiteOriginal);
   }
 
   const filas = [...grupos.values()].map(g => ({
@@ -274,7 +291,7 @@ async function prepararFilasOrden(datosParaOrden) {
     horaRecogida: HORA_RECOGIDA_DEFECTO,
     destino: g.nombreDestino,
     fechaEntrega: [...g.fechasEntrega].join(', '),
-    limiteEntrega: limites[g.clave] || '',
+    limiteEntrega: [...g.limitesEntrega][0] || '',
     transporte: [...g.transportes].join(', '),
     palletsEuropeos: g.palletsEuropeos,
     observaciones: [...g.entregas].join(', '),
@@ -292,7 +309,7 @@ async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
     year: 'numeric',
   });
 
-  const { filas, totalHuecos } = await prepararFilasOrden(datosParaPDF);
+  const { filas, totalHuecos } = await prepararFilasOrden(datosParaPDF, { fusionarConsumRibarroja: false });
 
   doc.setFontSize(16);
   doc.text(titulo, 14, 15);
@@ -377,7 +394,7 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     year: 'numeric',
   });
 
-  const { filas, totalHuecos } = await prepararFilasOrden(datosParaExcel);
+  const { filas, totalHuecos } = await prepararFilasOrden(datosParaExcel, { fusionarConsumRibarroja: true });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'LogiControl Pro';
