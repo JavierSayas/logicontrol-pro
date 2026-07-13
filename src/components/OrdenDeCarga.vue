@@ -416,7 +416,7 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     ref: 'A5',
     headerRow: true,
     totalsRow: true,
-    style: { theme: 'TableStyleMedium2', showRowStripes: true },
+    style: { theme: 'TableStyleMedium3', showRowStripes: true },
     columns: COLUMNAS_ORDEN.map((c, i) => {
       const col = { name: c.header, filterButton: true };
       if (c.dataKey === 'huecos' || c.dataKey === 'palletsEuropeos') {
