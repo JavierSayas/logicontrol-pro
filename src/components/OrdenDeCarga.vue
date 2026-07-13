@@ -148,13 +148,13 @@ function clienteDeDestino(nombreDestino) {
   return 'OTRO';
 }
 
-// Consum Murcia y Consum Valencia se entregan físicamente en la plataforma de
-// Consum en Ribarroja de Túria: Consum hace luego la logística interna a Murcia.
+// Todas las entregas de Consum (Murcia, Valencia/Ribarroja, Barcelona, etc.) se
+// entregan físicamente en la plataforma de Consum en Ribarroja de Túria: es
+// Consum quien hace luego la logística interna a cada destino.
 const NOMBRE_CONSUM_RIBARROJA = 'CONSUM RIBARROJA';
 
-function esConsumMurciaOValencia(nombreDestino) {
-  const d = normalizaTexto(nombreDestino);
-  return d.includes('CONSUM') && (d.includes('MURCIA') || d.includes('VALENCIA'));
+function esConsum(nombreDestino) {
+  return clienteDeDestino(nombreDestino) === 'CONSUM';
 }
 
 function huecosPorCajas(cantidad, cajasPorHueco) {
@@ -252,7 +252,7 @@ async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = fa
   for (const fila of datosParaOrden) {
     const nombreOriginal = fila.nombreDestino || '';
     const claveOriginal = normalizaTexto(nombreOriginal);
-    const fusionar = fusionarConsumRibarroja && esConsumMurciaOValencia(nombreOriginal);
+    const fusionar = fusionarConsumRibarroja && esConsum(nombreOriginal);
     const nombreGrupo = fusionar ? NOMBRE_CONSUM_RIBARROJA : nombreOriginal;
     const clave = fusionar ? normalizaTexto(NOMBRE_CONSUM_RIBARROJA) : claveOriginal;
 
