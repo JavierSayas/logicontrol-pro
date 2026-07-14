@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick, onActivated } from 'vue'
+import { ref, computed, watch, nextTick, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { supabase, supabaseOrigen } from '../lib/supabase'
 import { supabaseCmi } from '../lib/supabaseCmi'
 import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, History, Trash2, Info } from 'lucide-vue-next'
@@ -328,9 +328,44 @@ function handleCeldaKeydown(event) {
 
 watch(fecha, cargarDatos, { immediate: true })
 
-// Al volver desde otra sub-pestaña (keep-alive), recargar por si se editó
-// desde la pestaña Aldi de CMI mientras tanto.
-onActivated(cargarDatos)
+// Tiempo real: aldi_pedidos es la misma tabla que edita CMI, así que se
+// escuchan sus cambios (Supabase Realtime) para reflejarlos sin recargar.
+let aldiChannel = null
+
+function desuscribirRealtime() {
+  if (aldiChannel) {
+    supabaseCmi.removeChannel(aldiChannel)
+    aldiChannel = null
+  }
+}
+
+function suscribirRealtime() {
+  desuscribirRealtime()
+  aldiChannel = supabaseCmi
+    .channel(`aldi_pedidos-${fecha.value}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'aldi_pedidos',
+      filter: `fecha_produccion=eq.${fecha.value}`,
+    }, () => {
+      if (!isLoadingData) cargarDatos()
+    })
+    .subscribe()
+}
+
+watch(fecha, suscribirRealtime, { immediate: true })
+
+// Al volver desde otra sub-pestaña (keep-alive), recargar y re-suscribirse
+// (la suscripción se cierra al salir de la pestaña para no dejarla abierta
+// en segundo plano).
+onActivated(() => {
+  cargarDatos()
+  suscribirRealtime()
+})
+onDeactivated(desuscribirRealtime)
+onUnmounted(desuscribirRealtime)
+
 watch(valores, scheduleAutoSave, { deep: true })
 watch(estados, scheduleAutoSave, { deep: true })
 </script>
