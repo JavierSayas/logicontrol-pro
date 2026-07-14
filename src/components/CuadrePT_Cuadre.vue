@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onActivated } from 'vue'
 import { supabase } from '../lib/supabase'
 import { supabaseOrigen } from '../lib/supabase'
 import { supabaseCmi } from '../lib/supabaseCmi'
@@ -495,6 +495,10 @@ async function init() {
   await cargarDatos()
 }
 init()
+
+// La pestaña vive dentro de un <keep-alive>: al volver desde otra sub-pestaña
+// (p.ej. Pedidos Aldi tras actualizar cantidades) hay que recargar los datos.
+onActivated(cargarDatos)
 
 const mostrarEditor = ref(false)
 const editRows = ref([])
