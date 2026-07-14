@@ -319,8 +319,8 @@ async function cargarLidlSalidas() {
 }
 
 async function cargarAldiPedidos() {
-  const { data, error } = await supabase
-    .from('aldi_pedidos_plantilla')
+  const { data, error } = await supabaseCmi
+    .from('aldi_pedidos')
     .select('producto, masquefa, miranda, sagunto')
     .eq('fecha_produccion', fecha.value)
   if (error) throw error

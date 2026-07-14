@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onActivated } from 'vue'
 import { supabase, supabaseOrigen } from '../lib/supabase'
+import { supabaseCmi } from '../lib/supabaseCmi'
 import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, History, Trash2, Info } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 
@@ -132,10 +133,12 @@ function totalTabla(tipo) {
 
 const historico = ref(Object.fromEntries(PRODUCTOS.map(p => [p.key, []])))
 
+// aldi_pedidos vive en el Supabase de CMI Operaciones (misma tabla que usa su
+// pestaña Aldi): es la fuente única, editable desde ambos sistemas.
 async function cargarPlantilla() {
-  const { data, error } = await supabase
-    .from('aldi_pedidos_plantilla')
-    .select('producto, tipo, estado_masquefa, estado_miranda, estado_sagunto, masquefa, miranda, sagunto')
+  const { data, error } = await supabaseCmi
+    .from('aldi_pedidos')
+    .select('producto, tipo, label_masquefa, label_miranda, label_sagunto, masquefa, miranda, sagunto')
     .eq('fecha_produccion', fecha.value)
   if (error) throw error
 
@@ -149,7 +152,7 @@ async function cargarPlantilla() {
         sagunto: row.sagunto ?? 0,
       }
       for (const plat of PLATAFORMAS) {
-        const est = row['estado_' + plat.key]
+        const est = String(row['label_' + plat.key] || '').toLowerCase()
         if (est === 'real' || est === 'prev') {
           baseEstados[row.tipo][plat.key] = est
         }
@@ -277,18 +280,20 @@ async function guardar() {
           fecha_produccion: fecha.value,
           producto: p.key,
           tipo: t.tipo,
-          estado_masquefa: estados.value[t.tipo]?.masquefa ?? 'real',
-          estado_miranda: estados.value[t.tipo]?.miranda ?? 'real',
-          estado_sagunto: estados.value[t.tipo]?.sagunto ?? 'real',
+          label_masquefa: (estados.value[t.tipo]?.masquefa ?? 'real').toUpperCase(),
+          label_miranda: (estados.value[t.tipo]?.miranda ?? 'real').toUpperCase(),
+          label_sagunto: (estados.value[t.tipo]?.sagunto ?? 'real').toUpperCase(),
           masquefa: valores.value[t.tipo]?.[p.key]?.masquefa ?? 0,
           miranda: p.miranda ? (valores.value[t.tipo]?.[p.key]?.miranda ?? 0) : 0,
           sagunto: valores.value[t.tipo]?.[p.key]?.sagunto ?? 0,
         })
       }
     }
-    const { error } = await supabase
-      .from('aldi_pedidos_plantilla')
-      .upsert(rows, { onConflict: 'fecha_produccion,producto,tipo' })
+    // No se incluye sagunto_no_cuenta: es un campo propio de la pestaña Aldi
+    // de CMI que aquí no se gestiona, y así el upsert no lo pisa.
+    const { error } = await supabaseCmi
+      .from('aldi_pedidos')
+      .upsert(rows, { onConflict: 'fecha_produccion,tipo,producto' })
     if (error) throw error
     saveStatus.value = 'saved'
   } catch (err) {
@@ -318,6 +323,10 @@ function handleCeldaKeydown(event) {
 }
 
 watch(fecha, cargarDatos, { immediate: true })
+
+// Al volver desde otra sub-pestaña (keep-alive), recargar por si se editó
+// desde la pestaña Aldi de CMI mientras tanto.
+onActivated(cargarDatos)
 watch(valores, scheduleAutoSave, { deep: true })
 watch(estados, scheduleAutoSave, { deep: true })
 </script>
