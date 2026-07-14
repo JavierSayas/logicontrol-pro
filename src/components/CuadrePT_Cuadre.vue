@@ -14,36 +14,60 @@ const COLORES = {
 }
 const rowClassDeColor = (color) => COLORES[color]?.rowClass || COLORES.blanco.rowClass
 
-function filaDesdeDb(r) {
+// El material/nombre SAP de cada fila tiene historial por fecha de vigencia:
+// al cambiar el producto de una fila, el valor anterior sigue aplicando para
+// las fechas de cuadre ya pasadas, y el nuevo solo aplica desde su vigencia.
+function ordenarPorVigencia(entries) {
+  return [...entries].sort((a, b) => (a.vigente_desde || '').localeCompare(b.vigente_desde || ''))
+}
+
+function sapVigenteEn(entries, fechaStr) {
+  if (entries.length === 0) return null
+  const ordenadas = ordenarPorVigencia(entries)
+  const aplicables = ordenadas.filter(h => !h.vigente_desde || h.vigente_desde <= fechaStr)
+  return aplicables.length > 0 ? aplicables[aplicables.length - 1] : ordenadas[0]
+}
+
+const HOY = () => new Date().toLocaleDateString('en-CA')
+
+const productosBase = ref([])
+const historialSap = ref([])
+const cargandoProductos = ref(false)
+const errorProductos = ref('')
+
+function construirFila(p, fechaStr) {
+  const entries = historialSap.value.filter(h => h.producto_id === p.id)
+  const vigente = sapVigenteEn(entries, fechaStr)
   return {
-    id: r.id,
-    cliente: r.cliente,
-    producto: r.producto,
-    nombreSap: r.nombre_sap,
-    materialSap: r.material_sap,
-    matchClienteOf: r.match_cliente_of || '',
-    color: r.color || 'blanco',
-    rowClass: rowClassDeColor(r.color),
+    id: p.id,
+    cliente: p.cliente,
+    producto: p.producto,
+    nombreSap: vigente?.nombre_sap || '',
+    materialSap: vigente?.material_sap || '',
+    matchClienteOf: p.match_cliente_of || '',
+    color: p.color || 'blanco',
+    rowClass: rowClassDeColor(p.color),
   }
 }
 
-const filas = ref([])
-const cargandoProductos = ref(false)
-const errorProductos = ref('')
+const filas = computed(() => productosBase.value.map(p => construirFila(p, fecha.value)))
 
 async function cargarConfiguracionProductos() {
   cargandoProductos.value = true
   errorProductos.value = ''
   try {
-    const { data, error } = await supabase
-      .from('cuadre_pt_productos')
-      .select('*')
-      .order('orden', { ascending: true })
-    if (error) throw error
-    filas.value = (data || []).map(filaDesdeDb)
+    const [{ data: base, error: eBase }, { data: hist, error: eHist }] = await Promise.all([
+      supabase.from('cuadre_pt_productos').select('id, orden, cliente, producto, match_cliente_of, color').order('orden', { ascending: true }),
+      supabase.from('cuadre_pt_productos_sap_historial').select('id, producto_id, material_sap, nombre_sap, vigente_desde'),
+    ])
+    if (eBase) throw eBase
+    if (eHist) throw eHist
+    productosBase.value = base || []
+    historialSap.value = hist || []
   } catch (err) {
     errorProductos.value = 'Error cargando productos del cuadre: ' + err.message
-    filas.value = []
+    productosBase.value = []
+    historialSap.value = []
   } finally {
     cargandoProductos.value = false
   }
@@ -473,11 +497,22 @@ const guardandoProductos = ref(false)
 const errorEditor = ref('')
 
 function nuevaFilaVacia() {
-  return { cliente: '', producto: '', nombreSap: '', materialSap: '', matchClienteOf: '', color: 'blanco' }
+  return { id: null, cliente: '', producto: '', nombreSap: '', materialSap: '', matchClienteOf: '', color: 'blanco', vigenteDesde: HOY() }
 }
 
+// Snapshot del material/nombre SAP vigente HOY para cada fila al abrir el
+// editor, para poder detectar si el usuario lo cambió al guardar.
+let sapOriginalPorId = {}
+
 function abrirEditor() {
-  editRows.value = filas.value.map(f => ({ ...f }))
+  const hoy = HOY()
+  editRows.value = productosBase.value.map(p => {
+    const fila = construirFila(p, hoy)
+    return { ...fila, vigenteDesde: hoy }
+  })
+  sapOriginalPorId = Object.fromEntries(
+    editRows.value.filter(f => f.id != null).map(f => [f.id, { materialSap: f.materialSap, nombreSap: f.nombreSap }])
+  )
   errorEditor.value = ''
   mostrarEditor.value = true
 }
@@ -499,21 +534,52 @@ async function guardarConfiguracionProductos() {
   errorEditor.value = ''
   try {
     const filasValidas = editRows.value.filter(f => f.cliente.trim() && f.producto.trim() && f.materialSap.trim())
-    const { error: eDel } = await supabase.from('cuadre_pt_productos').delete().gte('id', 0)
-    if (eDel) throw eDel
 
-    if (filasValidas.length > 0) {
-      const rows = filasValidas.map((f, idx) => ({
+    const idsActuales = new Set(filasValidas.filter(f => f.id != null).map(f => f.id))
+    const idsAEliminar = productosBase.value.map(p => p.id).filter(id => !idsActuales.has(id))
+    if (idsAEliminar.length > 0) {
+      const { error: eDel } = await supabase.from('cuadre_pt_productos').delete().in('id', idsAEliminar)
+      if (eDel) throw eDel
+    }
+
+    for (let idx = 0; idx < filasValidas.length; idx++) {
+      const f = filasValidas[idx]
+      const base = {
         orden: idx + 1,
         cliente: f.cliente.trim(),
         producto: f.producto.trim(),
-        nombre_sap: f.nombreSap.trim(),
-        material_sap: f.materialSap.trim(),
         match_cliente_of: f.matchClienteOf.trim() || null,
         color: f.color || 'blanco',
-      }))
-      const { error: eIns } = await supabase.from('cuadre_pt_productos').insert(rows)
-      if (eIns) throw eIns
+      }
+      const nombreSap = f.nombreSap.trim()
+      const materialSap = f.materialSap.trim()
+
+      if (f.id != null) {
+        const { error: eUpd } = await supabase.from('cuadre_pt_productos').update(base).eq('id', f.id)
+        if (eUpd) throw eUpd
+
+        const original = sapOriginalPorId[f.id]
+        const cambioSap = !original || original.materialSap !== materialSap || original.nombreSap !== nombreSap
+        if (cambioSap) {
+          const { error: eHist } = await supabase.from('cuadre_pt_productos_sap_historial').insert({
+            producto_id: f.id,
+            material_sap: materialSap,
+            nombre_sap: nombreSap,
+            vigente_desde: f.vigenteDesde || HOY(),
+          })
+          if (eHist) throw eHist
+        }
+      } else {
+        const { data: nuevo, error: eIns } = await supabase.from('cuadre_pt_productos').insert(base).select('id').single()
+        if (eIns) throw eIns
+        const { error: eHist } = await supabase.from('cuadre_pt_productos_sap_historial').insert({
+          producto_id: nuevo.id,
+          material_sap: materialSap,
+          nombre_sap: nombreSap,
+          vigente_desde: null,
+        })
+        if (eHist) throw eHist
+      }
     }
 
     await cargarConfiguracionProductos()
@@ -722,6 +788,7 @@ async function guardarConfiguracionProductos() {
                 <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Producto</th>
                 <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Nombre SAP</th>
                 <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Material SAP</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Vigente desde</th>
                 <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Coincide con (opcional)</th>
                 <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Color</th>
                 <th class="px-2 py-2 w-8"></th>
@@ -740,6 +807,15 @@ async function guardarConfiguracionProductos() {
                 </td>
                 <td class="p-1">
                   <input v-model="fila.materialSap" type="text" placeholder="Material SAP" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <input
+                    v-model="fila.vigenteDesde"
+                    type="date"
+                    :disabled="fila.id == null"
+                    :title="fila.id == null ? 'Fila nueva: aplica siempre' : 'Solo se usa si cambias Nombre SAP o Material SAP'"
+                    class="w-full min-w-[130px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                  />
                 </td>
                 <td class="p-1">
                   <input v-model="fila.matchClienteOf" type="text" placeholder="ej: lidl" class="w-full min-w-[100px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
