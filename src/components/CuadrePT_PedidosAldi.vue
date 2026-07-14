@@ -254,16 +254,18 @@ async function cargarHistorico() {
   }
 }
 
-async function cargarDatos() {
+// mostrarCarga=false (recargas por tiempo real): actualiza los datos sin
+// tapar la tabla con el "Cargando…", para no dar el corte visual.
+async function cargarDatos(mostrarCarga = true) {
   isLoadingData = true
-  loading.value = true
+  if (mostrarCarga) loading.value = true
   errorMsg.value = ''
   try {
     await Promise.all([cargarPlantilla(), cargarHistorico()])
   } catch (err) {
     errorMsg.value = 'Error cargando datos: ' + err.message
   } finally {
-    loading.value = false
+    if (mostrarCarga) loading.value = false
     await nextTick()
     isLoadingData = false
   }
@@ -349,9 +351,11 @@ function suscribirRealtime() {
       table: 'aldi_pedidos',
       filter: `fecha_produccion=eq.${fecha.value}`,
     }, () => {
-      if (!isLoadingData) cargarDatos()
+      if (!isLoadingData) cargarDatos(false)
     })
-    .subscribe()
+    .subscribe((status, err) => {
+      if (err) console.error('[Pedidos Aldi] Error suscripción tiempo real:', err)
+    })
 }
 
 watch(fecha, suscribirRealtime, { immediate: true })

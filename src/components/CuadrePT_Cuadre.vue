@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick, onActivated } from 'vue'
+import { ref, computed, watch, nextTick, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { supabase } from '../lib/supabase'
 import { supabaseOrigen } from '../lib/supabase'
 import { supabaseCmi } from '../lib/supabaseCmi'
@@ -427,9 +427,11 @@ async function cargarPedidoLidl() {
   }
 }
 
-async function cargarDatos() {
+// mostrarCarga=false (recargas por tiempo real): actualiza los datos sin
+// tapar la tabla con el "Cargando…", para no dar el corte visual.
+async function cargarDatos(mostrarCarga = true) {
   isLoadingData = true
-  loading.value = true
+  if (mostrarCarga) loading.value = true
   errorMsg.value = ''
   try {
     await Promise.all([cargarStock(), cargarRealidad(), cargarRealidadAnterior(), cargarPedidoLidl(), cargarFabricado(), cargarAldiPedidos(), cargarLidlSalidas()])
@@ -437,7 +439,7 @@ async function cargarDatos() {
     console.error('[Cuadre] Error:', err)
     errorMsg.value = 'Error cargando datos: ' + err.message
   } finally {
-    loading.value = false
+    if (mostrarCarga) loading.value = false
     await nextTick()
     isLoadingData = false
   }
@@ -496,9 +498,46 @@ async function init() {
 }
 init()
 
+// Tiempo real: aldi_pedidos (Salidas pedidos de Aldi) es la misma tabla que
+// edita CMI y Pedidos Aldi; se escuchan sus cambios para reflejarlos sin
+// recargar la pantalla entera.
+let aldiChannel = null
+
+function desuscribirRealtimeAldi() {
+  if (aldiChannel) {
+    supabaseCmi.removeChannel(aldiChannel)
+    aldiChannel = null
+  }
+}
+
+function suscribirRealtimeAldi() {
+  desuscribirRealtimeAldi()
+  aldiChannel = supabaseCmi
+    .channel(`cuadre-aldi_pedidos-${fecha.value}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'aldi_pedidos',
+      filter: `fecha_produccion=eq.${fecha.value}`,
+    }, () => {
+      if (!isLoadingData) cargarDatos(false)
+    })
+    .subscribe((status, err) => {
+      if (err) console.error('[Cuadre] Error suscripción tiempo real:', err)
+    })
+}
+
+watch(fecha, suscribirRealtimeAldi, { immediate: true })
+
 // La pestaña vive dentro de un <keep-alive>: al volver desde otra sub-pestaña
-// (p.ej. Pedidos Aldi tras actualizar cantidades) hay que recargar los datos.
-onActivated(cargarDatos)
+// (p.ej. Pedidos Aldi tras actualizar cantidades) hay que recargar los datos
+// y re-suscribirse (la suscripción se cierra al salir de la pestaña).
+onActivated(() => {
+  cargarDatos()
+  suscribirRealtimeAldi()
+})
+onDeactivated(desuscribirRealtimeAldi)
+onUnmounted(desuscribirRealtimeAldi)
 
 const mostrarEditor = ref(false)
 const editRows = ref([])
