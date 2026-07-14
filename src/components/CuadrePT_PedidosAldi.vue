@@ -291,10 +291,14 @@ async function guardar() {
     }
     // No se incluye sagunto_no_cuenta: es un campo propio de la pestaña Aldi
     // de CMI que aquí no se gestiona, y así el upsert no lo pisa.
-    const { error } = await supabaseCmi
-      .from('aldi_pedidos')
-      .upsert(rows, { onConflict: 'fecha_produccion,tipo,producto' })
-    if (error) throw error
+    // El guardado va a través de una función de servidor (no directo a CMI):
+    // ahí vive la service_role key, fuera del alcance del navegador.
+    const res = await fetch('/.netlify/functions/aldi-pedidos-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    })
+    if (!res.ok) throw new Error(await res.text())
     saveStatus.value = 'saved'
   } catch (err) {
     saveStatus.value = 'error'
