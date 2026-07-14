@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import { supabaseOrigen } from '../lib/supabase'
+import { supabaseCmi } from '../lib/supabaseCmi'
 import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 
@@ -287,7 +288,7 @@ async function cargarRealidadAnterior() {
 async function cargarFabricado() {
   const codes = [...new Set(FILAS.map(f => Number(f.materialSap)))]
 
-  const { data: prods, error: ep } = await supabaseOrigen
+  const { data: prods, error: ep } = await supabaseCmi
     .from('productos')
     .select('id, material_sap')
     .in('material_sap', codes)
@@ -308,7 +309,7 @@ async function cargarFabricado() {
   d.setDate(d.getDate() + 1)
   const nextDay = d.toISOString().slice(0, 10)
 
-  const { data, error } = await supabaseOrigen
+  const { data, error } = await supabaseCmi
     .from('producciones')
     .select('producto_id, cantidad_entregada, numero_orden')
     .in('producto_id', ids)
@@ -319,7 +320,7 @@ async function cargarFabricado() {
   const ordenes = [...new Set((data || []).map(r => r.numero_orden).filter(v => v != null).map(String))]
   let clientePorOrden = {}
   if (ordenes.length) {
-    const { data: ofRows, error: eo } = await supabaseOrigen
+    const { data: ofRows, error: eo } = await supabaseCmi
       .from('ordenes_fabricacion')
       .select('n_orden, cliente')
       .in('n_orden', ordenes)
