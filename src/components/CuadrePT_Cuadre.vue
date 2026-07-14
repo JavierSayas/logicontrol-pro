@@ -7,10 +7,16 @@ import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Settings, Plus,
 import Card from './ui/Card.vue'
 
 const COLORES = {
-  blanco:  { label: 'Sin color', rowClass: 'bg-white' },
-  naranja: { label: 'Naranja',   rowClass: 'bg-orange-50' },
-  verde:   { label: 'Verde',     rowClass: 'bg-emerald-50' },
-  violeta: { label: 'Violeta',   rowClass: 'bg-violet-50' },
+  blanco:   { label: 'Sin color', rowClass: 'bg-white' },
+  naranja:  { label: 'Naranja',   rowClass: 'bg-orange-50' },
+  verde:    { label: 'Verde',     rowClass: 'bg-emerald-50' },
+  violeta:  { label: 'Violeta',   rowClass: 'bg-violet-50' },
+  azul:     { label: 'Azul',      rowClass: 'bg-sky-50' },
+  amarillo: { label: 'Amarillo',  rowClass: 'bg-amber-50' },
+  rosa:     { label: 'Rosa',      rowClass: 'bg-rose-50' },
+  cian:     { label: 'Cian',      rowClass: 'bg-cyan-50' },
+  indigo:   { label: 'Índigo',    rowClass: 'bg-indigo-50' },
+  gris:     { label: 'Gris',      rowClass: 'bg-slate-100' },
 }
 const rowClassDeColor = (color) => COLORES[color]?.rowClass || COLORES.blanco.rowClass
 
