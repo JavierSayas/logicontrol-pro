@@ -547,6 +547,7 @@ function eliminarVersionHistorial(idx) {
 }
 
 async function guardarHistorial(productoId) {
+  if (productoId == null) return
   guardandoHistorial.value = true
   errorHistorial.value = ''
   try {
@@ -911,7 +912,7 @@ async function guardarConfiguracionProductos() {
                   </button>
                 </td>
               </tr>
-              <tr v-if="historialAbiertoId === fila.id" class="bg-slate-50 border-b border-slate-200">
+              <tr v-if="fila.id != null && historialAbiertoId === fila.id" class="bg-slate-50 border-b border-slate-200">
                 <td colspan="7" class="p-3">
                   <div v-if="errorHistorial" class="mb-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                     {{ errorHistorial }}
