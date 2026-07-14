@@ -3,18 +3,51 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import { supabaseOrigen } from '../lib/supabase'
 import { supabaseCmi } from '../lib/supabaseCmi'
-import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Settings, Plus, Trash2, X } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 
-const FILAS = [
-  { cliente: 'Aldi',                  producto: 'Coco 150g',  nombreSap: 'COCO TACOS 06X150 ALDIIFCO',    materialSap: '11001778',                          rowClass: 'bg-white' },
-  { cliente: 'Aldi',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 07X540 ALDIIFCO', materialSap: '11001781',                          rowClass: 'bg-white' },
-  { cliente: 'Lidl',                  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X540 PRP LIDL', materialSap: '11002133', matchClienteOF: /lidl/i,   rowClass: 'bg-orange-50' },
-  { cliente: 'El corte inglés',       producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X500 DLM',      materialSap: '11001283',                            rowClass: 'bg-emerald-50' },
-  { cliente: 'El corte inglés',       producto: 'Tacos Piña', nombreSap: 'PIÑA TACOS 06X400 DLM',         materialSap: '11002365',                            rowClass: 'bg-emerald-50' },
-  { cliente: 'Supermercados Consum',  producto: 'Coco 125g',  nombreSap: 'COCO TACOS 06X125 DLM',         materialSap: '11002288',                            rowClass: 'bg-violet-50' },
-  { cliente: 'Supermercados Consum',  producto: 'Cilindro',   nombreSap: 'PIÑA CILINDRO 06X540 DLM',      materialSap: '11001451', matchClienteOF: /consum/i, rowClass: 'bg-violet-50' },
-]
+const COLORES = {
+  blanco:  { label: 'Sin color', rowClass: 'bg-white' },
+  naranja: { label: 'Naranja',   rowClass: 'bg-orange-50' },
+  verde:   { label: 'Verde',     rowClass: 'bg-emerald-50' },
+  violeta: { label: 'Violeta',   rowClass: 'bg-violet-50' },
+}
+const rowClassDeColor = (color) => COLORES[color]?.rowClass || COLORES.blanco.rowClass
+
+function filaDesdeDb(r) {
+  return {
+    id: r.id,
+    cliente: r.cliente,
+    producto: r.producto,
+    nombreSap: r.nombre_sap,
+    materialSap: r.material_sap,
+    matchClienteOf: r.match_cliente_of || '',
+    color: r.color || 'blanco',
+    rowClass: rowClassDeColor(r.color),
+  }
+}
+
+const filas = ref([])
+const cargandoProductos = ref(false)
+const errorProductos = ref('')
+
+async function cargarConfiguracionProductos() {
+  cargandoProductos.value = true
+  errorProductos.value = ''
+  try {
+    const { data, error } = await supabase
+      .from('cuadre_pt_productos')
+      .select('*')
+      .order('orden', { ascending: true })
+    if (error) throw error
+    filas.value = (data || []).map(filaDesdeDb)
+  } catch (err) {
+    errorProductos.value = 'Error cargando productos del cuadre: ' + err.message
+    filas.value = []
+  } finally {
+    cargandoProductos.value = false
+  }
+}
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -163,9 +196,9 @@ function focusRealidad(idx) {
 function handleRealidadKeydown(event, idx) {
   if (event.key !== 'Enter') return
   event.preventDefault()
-  setRealidad(FILAS[idx], event.target.value)
+  setRealidad(filas.value[idx], event.target.value)
   const next = event.shiftKey ? idx - 1 : idx + 1
-  if (next >= 0 && next < FILAS.length) focusRealidad(next)
+  if (next >= 0 && next < filas.value.length) focusRealidad(next)
 }
 
 function focusStock(idx) {
@@ -183,7 +216,7 @@ function handleStockKeydown(event, idx) {
   if (event.key !== 'Enter') return
   event.preventDefault()
   const next = event.shiftKey ? idx - 1 : idx + 1
-  if (next >= 0 && next < FILAS.length) focusStock(next)
+  if (next >= 0 && next < filas.value.length) focusStock(next)
 }
 
 function getCuadre(fila) {
@@ -286,7 +319,7 @@ async function cargarRealidadAnterior() {
 }
 
 async function cargarFabricado() {
-  const codes = [...new Set(FILAS.map(f => Number(f.materialSap)))]
+  const codes = [...new Set(filas.value.map(f => Number(f.materialSap)))]
 
   const { data: prods, error: ep } = await supabaseCmi
     .from('productos')
@@ -333,9 +366,10 @@ async function cargarFabricado() {
     const mat = idToMaterial[row.producto_id]
     if (!mat) continue
     const cliente = clientePorOrden[String(row.numero_orden)] || ''
-    const fila = FILAS.find(f =>
+    const clienteNorm = cliente.toLowerCase()
+    const fila = filas.value.find(f =>
       f.materialSap === mat &&
-      (!f.matchClienteOF || f.matchClienteOF.test(cliente))
+      (!f.matchClienteOf || clienteNorm.includes(f.matchClienteOf.toLowerCase()))
     )
     if (!fila) continue
     const valor = Number(row.cantidad_entregada)
@@ -383,7 +417,7 @@ async function cargarDatos() {
 async function guardarTodo() {
   saveStatus.value = 'saving'
   try {
-    const rows = FILAS.map(f => ({
+    const rows = filas.value.map(f => ({
       fecha: fecha.value,
       cliente: f.cliente,
       producto: f.producto,
@@ -425,7 +459,72 @@ watch(realidadData, scheduleAutoSave, { deep: true })
 watch(stockInicialOverride, scheduleAutoSave, { deep: true })
 watch(salidasOverride, scheduleAutoSave, { deep: true })
 watch(pedidoLidl, scheduleAutoSave, { deep: true })
-watch(fecha, cargarDatos, { immediate: true })
+watch(fecha, cargarDatos)
+
+async function init() {
+  await cargarConfiguracionProductos()
+  await cargarDatos()
+}
+init()
+
+const mostrarEditor = ref(false)
+const editRows = ref([])
+const guardandoProductos = ref(false)
+const errorEditor = ref('')
+
+function nuevaFilaVacia() {
+  return { cliente: '', producto: '', nombreSap: '', materialSap: '', matchClienteOf: '', color: 'blanco' }
+}
+
+function abrirEditor() {
+  editRows.value = filas.value.map(f => ({ ...f }))
+  errorEditor.value = ''
+  mostrarEditor.value = true
+}
+
+function cerrarEditor() {
+  mostrarEditor.value = false
+}
+
+function agregarFilaEditor() {
+  editRows.value.push(nuevaFilaVacia())
+}
+
+function eliminarFilaEditor(idx) {
+  editRows.value.splice(idx, 1)
+}
+
+async function guardarConfiguracionProductos() {
+  guardandoProductos.value = true
+  errorEditor.value = ''
+  try {
+    const filasValidas = editRows.value.filter(f => f.cliente.trim() && f.producto.trim() && f.materialSap.trim())
+    const { error: eDel } = await supabase.from('cuadre_pt_productos').delete().gte('id', 0)
+    if (eDel) throw eDel
+
+    if (filasValidas.length > 0) {
+      const rows = filasValidas.map((f, idx) => ({
+        orden: idx + 1,
+        cliente: f.cliente.trim(),
+        producto: f.producto.trim(),
+        nombre_sap: f.nombreSap.trim(),
+        material_sap: f.materialSap.trim(),
+        match_cliente_of: f.matchClienteOf.trim() || null,
+        color: f.color || 'blanco',
+      }))
+      const { error: eIns } = await supabase.from('cuadre_pt_productos').insert(rows)
+      if (eIns) throw eIns
+    }
+
+    await cargarConfiguracionProductos()
+    await cargarDatos()
+    mostrarEditor.value = false
+  } catch (err) {
+    errorEditor.value = 'Error guardando productos: ' + err.message
+  } finally {
+    guardandoProductos.value = false
+  }
+}
 </script>
 
 <template>
@@ -447,6 +546,14 @@ watch(fecha, cargarDatos, { immediate: true })
         <span class="ml-1 text-xs font-semibold text-slate-700 capitalize px-2 py-0.5 rounded bg-slate-100">{{ diaSemana }}</span>
         <span class="ml-1 text-xs font-medium text-slate-500 px-1">{{ fechaFormatada }}</span>
       </div>
+
+      <button
+        @click="abrirEditor"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-slate-800 transition-colors"
+      >
+        <Settings class="w-4 h-4" />
+        Editar productos
+      </button>
 
       <span class="text-xs font-medium italic">
         <span v-if="saveStatus === 'saving'" class="text-slate-400">Guardando…</span>
@@ -484,7 +591,7 @@ watch(fecha, cargarDatos, { immediate: true })
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(fila, idx) in FILAS" :key="rowKey(fila)" :class="['border-b border-slate-100', fila.rowClass]">
+              <tr v-for="(fila, idx) in filas" :key="rowKey(fila)" :class="['border-b border-slate-100', fila.rowClass]">
                 <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">{{ fila.cliente }}</td>
                 <td class="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">{{ fila.producto }}</td>
                 <td class="px-3 py-2 text-xs font-medium text-slate-500 whitespace-nowrap">{{ fila.nombreSap }}</td>
@@ -593,5 +700,86 @@ watch(fecha, cargarDatos, { immediate: true })
         </Card>
       </div>
     </template>
+
+    <div v-if="mostrarEditor" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Editar productos del cuadre</h3>
+          <button @click="cerrarEditor" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="overflow-auto px-5 py-4 flex-1">
+          <div v-if="errorEditor" class="mb-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+            {{ errorEditor }}
+          </div>
+
+          <table class="w-full border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200">
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Cliente</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Producto</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Nombre SAP</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Material SAP</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Coincide con (opcional)</th>
+                <th class="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">Color</th>
+                <th class="px-2 py-2 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(fila, idx) in editRows" :key="idx" class="border-b border-slate-100">
+                <td class="p-1">
+                  <input v-model="fila.cliente" type="text" placeholder="Cliente" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <input v-model="fila.producto" type="text" placeholder="Producto" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <input v-model="fila.nombreSap" type="text" placeholder="Nombre SAP" class="w-full min-w-[160px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <input v-model="fila.materialSap" type="text" placeholder="Material SAP" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <input v-model="fila.matchClienteOf" type="text" placeholder="ej: lidl" class="w-full min-w-[100px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
+                </td>
+                <td class="p-1">
+                  <select v-model="fila.color" class="w-full min-w-[100px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400">
+                    <option v-for="(def, key) in COLORES" :key="key" :value="key">{{ def.label }}</option>
+                  </select>
+                </td>
+                <td class="p-1 text-center">
+                  <button @click="eliminarFilaEditor(idx)" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors" title="Eliminar fila">
+                    <Trash2 class="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button
+            @click="agregarFilaEditor"
+            class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors"
+          >
+            <Plus class="w-4 h-4" />
+            Añadir fila
+          </button>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-200">
+          <button @click="cerrarEditor" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+            Cancelar
+          </button>
+          <button
+            @click="guardarConfiguracionProductos"
+            :disabled="guardandoProductos"
+            class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 transition-colors"
+          >
+            {{ guardandoProductos ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
