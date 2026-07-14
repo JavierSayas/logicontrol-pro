@@ -3,7 +3,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import { supabaseOrigen } from '../lib/supabase'
 import { supabaseCmi } from '../lib/supabaseCmi'
-import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Settings, Plus, Trash2, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Settings, Plus, Trash2, X, History } from 'lucide-vue-next'
 import Card from './ui/Card.vue'
 
 const COLORES = {
@@ -519,6 +519,76 @@ function abrirEditor() {
 
 function cerrarEditor() {
   mostrarEditor.value = false
+  historialAbiertoId.value = null
+}
+
+const historialAbiertoId = ref(null)
+const historialEdit = ref([])
+const guardandoHistorial = ref(false)
+const errorHistorial = ref('')
+
+function toggleHistorial(productoId) {
+  if (historialAbiertoId.value === productoId) {
+    historialAbiertoId.value = null
+    return
+  }
+  historialEdit.value = ordenarPorVigencia(historialSap.value.filter(h => h.producto_id === productoId))
+    .map(h => ({ id: h.id, materialSap: h.material_sap, nombreSap: h.nombre_sap, vigenteDesde: h.vigente_desde || '' }))
+  errorHistorial.value = ''
+  historialAbiertoId.value = productoId
+}
+
+function agregarVersionHistorial() {
+  historialEdit.value.push({ id: null, materialSap: '', nombreSap: '', vigenteDesde: HOY() })
+}
+
+function eliminarVersionHistorial(idx) {
+  historialEdit.value.splice(idx, 1)
+}
+
+async function guardarHistorial(productoId) {
+  guardandoHistorial.value = true
+  errorHistorial.value = ''
+  try {
+    const validas = historialEdit.value.filter(h => h.materialSap.trim())
+    if (validas.length === 0) {
+      errorHistorial.value = 'Tiene que quedar al menos una versión con Material SAP.'
+      return
+    }
+
+    const idsActuales = new Set(validas.filter(h => h.id != null).map(h => h.id))
+    const idsAEliminar = historialSap.value
+      .filter(h => h.producto_id === productoId && !idsActuales.has(h.id))
+      .map(h => h.id)
+    if (idsAEliminar.length > 0) {
+      const { error: eDel } = await supabase.from('cuadre_pt_productos_sap_historial').delete().in('id', idsAEliminar)
+      if (eDel) throw eDel
+    }
+
+    for (const h of validas) {
+      const payload = {
+        producto_id: productoId,
+        material_sap: h.materialSap.trim(),
+        nombre_sap: h.nombreSap.trim(),
+        vigente_desde: h.vigenteDesde || null,
+      }
+      if (h.id != null) {
+        const { error: eUpd } = await supabase.from('cuadre_pt_productos_sap_historial').update(payload).eq('id', h.id)
+        if (eUpd) throw eUpd
+      } else {
+        const { error: eIns } = await supabase.from('cuadre_pt_productos_sap_historial').insert(payload)
+        if (eIns) throw eIns
+      }
+    }
+
+    await cargarConfiguracionProductos()
+    await cargarDatos()
+    historialAbiertoId.value = null
+  } catch (err) {
+    errorHistorial.value = 'Error guardando historial: ' + err.message
+  } finally {
+    guardandoHistorial.value = false
+  }
 }
 
 function agregarFilaEditor() {
@@ -795,7 +865,8 @@ async function guardarConfiguracionProductos() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(fila, idx) in editRows" :key="idx" class="border-b border-slate-100">
+              <template v-for="(fila, idx) in editRows" :key="idx">
+              <tr class="border-b border-slate-100">
                 <td class="p-1">
                   <input v-model="fila.cliente" type="text" placeholder="Cliente" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400" />
                 </td>
@@ -825,12 +896,82 @@ async function guardarConfiguracionProductos() {
                     <option v-for="(def, key) in COLORES" :key="key" :value="key">{{ def.label }}</option>
                   </select>
                 </td>
-                <td class="p-1 text-center">
+                <td class="p-1 text-center whitespace-nowrap">
+                  <button
+                    v-if="fila.id != null"
+                    @click="toggleHistorial(fila.id)"
+                    class="p-1.5 rounded-lg transition-colors"
+                    :class="historialAbiertoId === fila.id ? 'text-slate-900 bg-slate-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'"
+                    title="Ver / corregir historial de fechas"
+                  >
+                    <History class="w-4 h-4" />
+                  </button>
                   <button @click="eliminarFilaEditor(idx)" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors" title="Eliminar fila">
                     <Trash2 class="w-4 h-4" />
                   </button>
                 </td>
               </tr>
+              <tr v-if="historialAbiertoId === fila.id" class="bg-slate-50 border-b border-slate-200">
+                <td colspan="7" class="p-3">
+                  <div v-if="errorHistorial" class="mb-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {{ errorHistorial }}
+                  </div>
+                  <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                    Historial de {{ fila.cliente }} · {{ fila.producto }} — corrige aquí la fecha desde la que aplica cada versión
+                  </p>
+                  <table class="w-full border-collapse text-sm mb-2">
+                    <thead>
+                      <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        <th class="text-left px-2 py-1">Nombre SAP</th>
+                        <th class="text-left px-2 py-1">Material SAP</th>
+                        <th class="text-left px-2 py-1">Vigente desde</th>
+                        <th class="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(h, hIdx) in historialEdit" :key="hIdx">
+                        <td class="p-1">
+                          <input v-model="h.nombreSap" type="text" class="w-full min-w-[160px] px-2 py-1.5 border border-slate-200 rounded-md text-sm bg-white focus:outline-none focus:border-slate-400" />
+                        </td>
+                        <td class="p-1">
+                          <input v-model="h.materialSap" type="text" class="w-full min-w-[110px] px-2 py-1.5 border border-slate-200 rounded-md text-sm bg-white focus:outline-none focus:border-slate-400" />
+                        </td>
+                        <td class="p-1">
+                          <input
+                            v-model="h.vigenteDesde"
+                            type="date"
+                            placeholder="Siempre"
+                            title="Vacío = aplica desde siempre"
+                            class="w-full min-w-[130px] px-2 py-1.5 border border-slate-200 rounded-md text-sm bg-white focus:outline-none focus:border-slate-400"
+                          />
+                        </td>
+                        <td class="p-1 text-center">
+                          <button @click="eliminarVersionHistorial(hIdx)" class="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-colors" title="Eliminar versión">
+                            <Trash2 class="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="flex items-center justify-between">
+                    <button
+                      @click="agregarVersionHistorial"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors"
+                    >
+                      <Plus class="w-3.5 h-3.5" />
+                      Añadir versión
+                    </button>
+                    <button
+                      @click="guardarHistorial(fila.id)"
+                      :disabled="guardandoHistorial"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                    >
+                      {{ guardandoHistorial ? 'Guardando…' : 'Guardar historial' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              </template>
             </tbody>
           </table>
 
