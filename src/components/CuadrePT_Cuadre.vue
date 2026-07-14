@@ -323,7 +323,6 @@ async function cargarAldiPedidos() {
     .from('aldi_pedidos_plantilla')
     .select('producto, masquefa, miranda, sagunto')
     .eq('fecha_produccion', fecha.value)
-    .eq('tipo', 'diario')
   if (error) throw error
   const map = {}
   for (const row of (data || [])) {
