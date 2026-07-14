@@ -37,7 +37,7 @@ const ESTADO_META = {
 
 function estadosVacios() {
   return {
-    diario: { masquefa: 'real', miranda: 'real', sagunto: 'real' },
+    diario: { masquefa: 'prev', miranda: 'prev', sagunto: 'prev' },
     lunes:  { masquefa: 'prev', miranda: 'prev', sagunto: 'prev' },
   }
 }
