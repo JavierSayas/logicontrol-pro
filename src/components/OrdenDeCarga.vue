@@ -724,6 +724,18 @@ async function guardarYDescargarPDF(tipo) {
   if (ok) await generar();
 }
 
+// La fecha del nombre de archivo INNOVA sale de "Salida Mercancías" (SAP,
+// formato DD.MM.AAAA), no de la fecha de operaciones de la app.
+function fechaArchivoDesdeSalidaMercancias(datos) {
+  const raw = datos.find(f => f.salidaMercancias)?.salidaMercancias;
+  const m = String(raw ?? '').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) {
+    const [, dia, mes, anio] = m;
+    return `${anio}_${mes.padStart(2, '0')}_${dia.padStart(2, '0')}`;
+  }
+  return store.fecha.replace(/-/g, '_');
+}
+
 async function generarExcelInnnova() {
   try {
     const datosParaExcel = filasParaPDFInnnova.value;
@@ -734,7 +746,7 @@ async function generarExcelInnnova() {
       return;
     }
 
-    await generarExcelOrden('ORDEN DE CARGA INNOVA', datosParaExcel, `INNOVA_${store.fecha}.xlsx`);
+    await generarExcelOrden('ORDEN DE CARGA INNOVA', datosParaExcel, `INNOVA_${fechaArchivoDesdeSalidaMercancias(datosParaExcel)}.xlsx`);
   } catch (err) {
     showToast('Error generando Excel: ' + err.message, 'error');
   }
