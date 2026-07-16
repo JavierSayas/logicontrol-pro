@@ -519,6 +519,7 @@ async function obtenerExcepcionesPalet() {
   const { data, error } = await supabase
     .from('orden_carga_excepciones_palet')
     .select('nombre_sap, destino_contiene, tipo_palet, retornable');
+  console.log('[excepciones-palet] cargadas:', data, 'error:', error);
   if (error) {
     showToast('No se pudieron cargar excepciones de palet: ' + error.message, 'error');
     return [];
@@ -563,6 +564,9 @@ async function marcarRetornables(filas) {
       normalizaTexto(e.nombre_sap) === clave &&
       destinoNorm.includes(normalizaTexto(e.destino_contiene))
     );
+    if (destinoNorm.includes('MIRANDA')) {
+      console.log('[excepciones-palet] fila Miranda:', { denominacion: fila.denominacion, clave, destino: fila.nombreDestino, destinoNorm, excepcion });
+    }
     if (excepcion) {
       fila.tipoPalet = excepcion.tipo_palet;
       fila.retornable = excepcion.retornable;
