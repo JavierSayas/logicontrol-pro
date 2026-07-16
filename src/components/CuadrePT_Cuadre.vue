@@ -107,10 +107,8 @@ const rowKey = f => `${f.cliente}|${f.producto}`
 const stockData = ref({})
 const realidadData = ref({})
 const realidadAnteriorData = ref({})
-const stockInicialOverride = ref({})
 const fabricadoData = ref({})
 const aldiSalidasData = ref({})
-const salidasOverride = ref({})
 
 const ALDI_PEDIDOS_MAP = {
   'Coco 150g': 'Coco Aldi',
@@ -152,22 +150,35 @@ const opcionesFechaEntrega = computed(() => [
 
 const pedidoLidl = ref({ plataforma: '', fecha_entrega: '', cantidad: null })
 
-function getStockInicialAuto(fila) {
-  const prev = realidadAnteriorData.value[rowKey(fila)]
-  if (prev != null) return Number(prev)
-  const s = stockData.value[rowKey(fila)]?.stock_inicial
-  return s == null ? null : Number(s)
+// Stock Inicial y Salidas manuales viven en planificacion_aldi_stock, la
+// tabla de CMI (misma que ya usa cargarStock()), para que ambos sistemas
+// editen y vean el mismo valor en tiempo real.
+async function guardarStockCmi(fila, campos) {
+  try {
+    const res = await fetch('/.netlify/functions/planificacion-stock-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fila: { fecha: fecha.value, cliente: fila.cliente, producto: fila.producto, ...campos } }),
+    })
+    if (!res.ok) throw new Error(await res.text())
+  } catch (err) {
+    errorMsg.value = 'Error guardando en CMI: ' + err.message
+  }
 }
 
 function getStockInicial(fila) {
-  const ov = stockInicialOverride.value[rowKey(fila)]
-  if (ov != null) return ov
-  return getStockInicialAuto(fila)
+  const s = stockData.value[rowKey(fila)]?.stock_inicial
+  if (s != null) return Number(s)
+  const prev = realidadAnteriorData.value[rowKey(fila)]
+  return prev != null ? Number(prev) : null
 }
 
 function setStockInicial(fila, raw) {
+  const valor = raw === '' || raw == null ? null : Math.round(Number(raw))
   const k = rowKey(fila)
-  stockInicialOverride.value[k] = raw === '' || raw == null ? null : Math.round(Number(raw))
+  if (!stockData.value[k]) stockData.value[k] = {}
+  stockData.value[k].stock_inicial = valor
+  guardarStockCmi(fila, { stock_inicial: valor })
 }
 
 function getSalidasPedidos(fila) {
@@ -178,17 +189,20 @@ function getSalidasPedidos(fila) {
   if (esLidl(fila)) {
     return lidlSalidas.value
   }
-  return salidasOverride.value[rowKey(fila)] ?? null
+  return stockData.value[rowKey(fila)]?.expediciones ?? null
 }
 
 function getSalidasManual(fila) {
-  const v = salidasOverride.value[rowKey(fila)]
+  const v = stockData.value[rowKey(fila)]?.expediciones
   return v == null ? '' : v
 }
 
 function setSalidasManual(fila, raw) {
+  const valor = raw === '' || raw == null ? null : Math.round(Number(raw))
   const k = rowKey(fila)
-  salidasOverride.value[k] = raw === '' || raw == null ? null : Math.round(Number(raw))
+  if (!stockData.value[k]) stockData.value[k] = {}
+  stockData.value[k].expediciones = valor
+  guardarStockCmi(fila, { expediciones: valor })
 }
 
 function getFabricado(fila) {
@@ -268,16 +282,10 @@ async function cargarStock() {
 async function cargarRealidad() {
   const { data, error } = await supabase
     .from('cuadre_pt_realidad')
-    .select('cliente, producto, realidad, stock_inicial, salidas_pedidos')
+    .select('cliente, producto, realidad')
     .eq('fecha', fecha.value)
   if (error) throw error
   realidadData.value = Object.fromEntries((data || []).map(r => [rowKey(r), r.realidad]))
-  stockInicialOverride.value = Object.fromEntries(
-    (data || []).map(r => [rowKey(r), r.stock_inicial == null ? null : Number(r.stock_inicial)])
-  )
-  salidasOverride.value = Object.fromEntries(
-    (data || []).map(r => [rowKey(r), r.salidas_pedidos == null ? null : Number(r.salidas_pedidos)])
-  )
 }
 
 async function cargarLidlSalidas() {
@@ -453,8 +461,6 @@ async function guardarTodo() {
       cliente: f.cliente,
       producto: f.producto,
       realidad: realidadData.value[rowKey(f)] ?? null,
-      stock_inicial: stockInicialOverride.value[rowKey(f)] ?? null,
-      salidas_pedidos: esSalidasManual(f) ? (salidasOverride.value[rowKey(f)] ?? null) : null,
     }))
     const [{ error: e1 }, { error: e2 }] = await Promise.all([
       supabase
@@ -487,8 +493,6 @@ function scheduleAutoSave() {
 }
 
 watch(realidadData, scheduleAutoSave, { deep: true })
-watch(stockInicialOverride, scheduleAutoSave, { deep: true })
-watch(salidasOverride, scheduleAutoSave, { deep: true })
 watch(pedidoLidl, scheduleAutoSave, { deep: true })
 watch(fecha, cargarDatos)
 
@@ -529,15 +533,53 @@ function suscribirRealtimeAldi() {
 
 watch(fecha, suscribirRealtimeAldi, { immediate: true })
 
+// Tiempo real: planificacion_aldi_stock (Stock Inicial de las 8 filas y
+// Salidas manuales de El Corte Inglés/Consum/Mercadona) es la misma tabla
+// que edita CMI en Plan de Producción.
+let stockChannel = null
+
+function desuscribirRealtimeStock() {
+  if (stockChannel) {
+    supabaseOrigen.removeChannel(stockChannel)
+    stockChannel = null
+  }
+}
+
+function suscribirRealtimeStock() {
+  desuscribirRealtimeStock()
+  stockChannel = supabaseOrigen
+    .channel(`cuadre-planificacion_aldi_stock-${fecha.value}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'planificacion_aldi_stock',
+      filter: `fecha=eq.${fecha.value}`,
+    }, () => {
+      if (!isLoadingData) cargarStock()
+    })
+    .subscribe((status, err) => {
+      if (err) console.error('[Cuadre] Error suscripción tiempo real (stock):', err)
+    })
+}
+
+watch(fecha, suscribirRealtimeStock, { immediate: true })
+
 // La pestaña vive dentro de un <keep-alive>: al volver desde otra sub-pestaña
 // (p.ej. Pedidos Aldi tras actualizar cantidades) hay que recargar los datos
 // y re-suscribirse (la suscripción se cierra al salir de la pestaña).
 onActivated(() => {
   cargarDatos()
   suscribirRealtimeAldi()
+  suscribirRealtimeStock()
 })
-onDeactivated(desuscribirRealtimeAldi)
-onUnmounted(desuscribirRealtimeAldi)
+onDeactivated(() => {
+  desuscribirRealtimeAldi()
+  desuscribirRealtimeStock()
+})
+onUnmounted(() => {
+  desuscribirRealtimeAldi()
+  desuscribirRealtimeStock()
+})
 
 const mostrarEditor = ref(false)
 const editRows = ref([])
