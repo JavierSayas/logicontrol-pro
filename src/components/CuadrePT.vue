@@ -14,7 +14,9 @@ const auth = useAuthStore()
 const subtabs = [
   { id: 'produccion',    label: 'Producción',         icon: Factory },
   { id: 'cuadre',        label: 'Cuadre',             icon: Calculator },
-  { id: 'pedidosAldi',   label: 'Pedidos Aldi',       icon: Boxes },
+  // 'pedidosAldi' oculta: unificada en tiempo real con la pestaña Aldi de CMI,
+  // ya no hace falta duplicarla aquí. Componente CuadrePT_PedidosAldi.vue
+  // se deja sin usar por si hiciera falta reactivarla.
   { id: 'produccionDia', label: 'Producción del día', icon: FileSpreadsheet },
   { id: 'lidl',          label: 'Lidl',               icon: Building2 },
 ]
