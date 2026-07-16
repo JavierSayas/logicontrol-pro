@@ -511,19 +511,36 @@ function tokenClienteProducto(nombreDestino) {
   return mapa[cliente] || '';
 }
 
+// Excepciones puntuales por plataforma/destino (p.ej. Aldi Miranda usa palet
+// CHEP aunque el maestro de productos diga otro palet por defecto). Se
+// consultan en la propia BBDD de LogisPro, así que funcionan aunque el
+// maestro de productos (proyecto Origen) no responda.
+async function obtenerExcepcionesPalet() {
+  const { data, error } = await supabase
+    .from('orden_carga_excepciones_palet')
+    .select('nombre_sap, destino_contiene, tipo_palet, retornable');
+  if (error) {
+    showToast('No se pudieron cargar excepciones de palet: ' + error.message, 'error');
+    return [];
+  }
+  return data || [];
+}
+
 async function marcarRetornables(filas) {
   const denoms = [...new Set(filas.map(f => normalizaTexto(f.denominacion)).filter(Boolean))];
   if (denoms.length === 0) return;
 
-  const { data, error: errProd } = await supabaseOrigen
-    .from('productos')
-    .select('nombre_sap, cliente, cliente_alias, tipo_palet')
-    .eq('en_activo', true)
-    .eq('pendiente_lanzar', false);
+  const [{ data, error: errProd }, excepciones] = await Promise.all([
+    supabaseOrigen
+      .from('productos')
+      .select('nombre_sap, cliente, cliente_alias, tipo_palet')
+      .eq('en_activo', true)
+      .eq('pendiente_lanzar', false),
+    obtenerExcepcionesPalet(),
+  ]);
 
   if (errProd) {
-    showToast('No se pudo consultar el tipo de palet: ' + errProd.message, 'error');
-    return;
+    showToast('No se pudo consultar el maestro de productos: ' + errProd.message, 'error');
   }
 
   const porDenom = new Map();
@@ -540,6 +557,19 @@ async function marcarRetornables(filas) {
 
   for (const fila of filas) {
     const clave = normalizaTexto(fila.denominacion);
+    const destinoNorm = normalizaTexto(fila.nombreDestino);
+
+    const excepcion = excepciones.find(e =>
+      normalizaTexto(e.nombre_sap) === clave &&
+      destinoNorm.includes(normalizaTexto(e.destino_contiene))
+    );
+    if (excepcion) {
+      fila.tipoPalet = excepcion.tipo_palet;
+      fila.retornable = excepcion.retornable;
+      fila.retornableInfo = 'excepcion';
+      continue;
+    }
+
     const rows = porDenom.get(clave);
 
     if (!rows || rows.length === 0) {
@@ -900,10 +930,11 @@ async function generarPDFMosca() {
                       <input
                         v-model="fila.retornable"
                         type="checkbox"
-                        :title="fila.retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (fila.retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (fila.retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable'))"
+                        :title="fila.retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (fila.retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (fila.retornableInfo === 'excepcion' ? 'Excepción manual por destino (' + fila.tipoPalet + ')' : (fila.retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable')))"
                         :class="[
                           'w-5 h-5 rounded cursor-pointer accent-emerald-600',
                           fila.retornableInfo === 'ambiguo' || fila.retornableInfo === 'sin-datos' ? 'ring-1 ring-amber-300' : '',
+                          fila.retornableInfo === 'excepcion' ? 'ring-1 ring-sky-300' : '',
                         ]"
                       />
                     </div>
