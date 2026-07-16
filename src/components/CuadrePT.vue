@@ -12,11 +12,11 @@ import { useAuthStore } from '../stores/auth'
 const auth = useAuthStore()
 
 const subtabs = [
-  { id: 'produccion',    label: 'Producción',         icon: Factory },
+  // 'produccion' oculta: unificada en tiempo real con CMI, ya no hace falta
+  // duplicarla aquí. Componente CuadrePT_Produccion.vue se deja sin usar por
+  // si hiciera falta reactivarla.
   { id: 'cuadre',        label: 'Cuadre',             icon: Calculator },
-  // 'pedidosAldi' oculta: unificada en tiempo real con la pestaña Aldi de CMI,
-  // ya no hace falta duplicarla aquí. Componente CuadrePT_PedidosAldi.vue
-  // se deja sin usar por si hiciera falta reactivarla.
+  { id: 'pedidosAldi',   label: 'Pedidos Aldi',       icon: Boxes },
   { id: 'produccionDia', label: 'Producción del día', icon: FileSpreadsheet },
   { id: 'lidl',          label: 'Lidl',               icon: Building2 },
 ]
