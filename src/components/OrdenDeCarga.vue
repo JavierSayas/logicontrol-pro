@@ -95,7 +95,7 @@ const COLUMNAS = [
   { key: 'fechaEntrega',     label: 'F. Entrega',          width: 'w-[7%]',  editable: false },
   { key: 'salidaMercancias', label: 'Salida Merc.',        width: 'w-[7%]',  editable: false },
   { key: 'motivoPedido',     label: 'Motivo',              width: 'w-[6%]',  editable: false },
-  { key: 'denominacion',     label: 'Denominación',        width: 'w-[16%]', editable: false },
+  { key: 'denominacion',     label: 'Denominación',        width: 'w-[12%]', editable: false },
   { key: 'cantidadPedido',   label: 'Cant.',               width: 'w-[5%]',  editable: false },
   { key: 'agenteServicios',  label: 'Agente Serv.',        width: 'w-[12%]', editable: false },
   { key: 'ruta',             label: 'Ruta',                width: 'w-[6%]',  editable: false },
@@ -103,6 +103,7 @@ const COLUMNAS = [
   { key: 'numeroEntrega',    label: 'Nº Entrega',          width: 'w-[8%]',  editable: false },
   { key: 'huecos',           label: 'Huecos',              width: 'w-[5%]',  editable: true },
   { key: 'retornable',       label: 'Retorn.',             width: 'w-[5%]',  editable: true },
+  { key: 'paletsRetornables',label: 'Palets Retorn.',      width: 'w-[4%]',  editable: true },
 ];
 
 const ordenSAP = [
@@ -276,7 +277,7 @@ async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = fa
     const g = grupos.get(clave);
     const huecosFila = parseInt(fila.huecos) || 0;
     g.huecos += huecosFila;
-    if (fila.retornable) g.palletsEuropeos += huecosFila;
+    if (fila.retornable) g.palletsEuropeos += parseInt(fila.paletsRetornables) || huecosFila;
     if (!g.fechaRecogida && fila.salidaMercancias) g.fechaRecogida = fila.salidaMercancias;
     const tp = limpiarTipoPalet(fila.tipoPalet);
     if (tp) g.tipos.add(tp);
@@ -600,6 +601,12 @@ async function marcarRetornables(filas) {
       ? 'ambiguo'
       : (tiposDistintos.size > 1 ? 'auto-cliente' : 'auto');
   }
+
+  // Por defecto 1 palet retornable por hueco, pero editable a mano en la tabla
+  // (a veces el número real de palets físicos no coincide con los huecos).
+  for (const fila of filas) {
+    fila.paletsRetornables = fila.retornable ? fila.huecos : '0';
+  }
 }
 
 async function handlePaste(event) {
@@ -915,7 +922,7 @@ async function generarPDFMosca() {
                   :class="{
                     'break-words': col.key === 'nombreDestino' || col.key === 'denominacion',
                     'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos',
-                    'bg-slate-50/80': col.key === 'retornable',
+                    'bg-slate-50/80': col.key === 'retornable' || col.key === 'paletsRetornables',
                   }"
                 >
                   <template v-if="col.editable && col.key === 'huecos'">
@@ -941,6 +948,16 @@ async function generarPDFMosca() {
                         ]"
                       />
                     </div>
+                  </template>
+                  <template v-else-if="col.editable && col.key === 'paletsRetornables'">
+                    <input
+                      v-if="fila.retornable"
+                      v-model="fila.paletsRetornables"
+                      type="text"
+                      class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
+                      placeholder="—"
+                    />
+                    <span v-else class="text-slate-300 text-xs block text-center">—</span>
                   </template>
                   <template v-else>
                     <span :class="{
