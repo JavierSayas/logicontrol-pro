@@ -714,6 +714,12 @@ async function generarPDF() {
   }
 }
 
+// Al cambiar huecos a mano, los palets retornables siguen el mismo número
+// (si la fila es retornable) — luego se pueden volver a ajustar aparte.
+function onHuecosInput(fila) {
+  if (fila.retornable) fila.paletsRetornables = fila.huecos;
+}
+
 function handleHuecosKeydown(event, rowIdx) {
   if (event.key === 'Enter') {
     event.preventDefault();
@@ -930,6 +936,7 @@ async function generarPDFMosca() {
                       v-model="fila[col.key]"
                       type="text"
                       data-huecos-input
+                      @input="onHuecosInput(fila)"
                       @keydown.enter="handleHuecosKeydown($event, idx)"
                       class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
