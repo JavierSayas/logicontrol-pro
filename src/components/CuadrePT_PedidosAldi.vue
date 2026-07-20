@@ -209,9 +209,9 @@ async function cargarHistorico() {
   try {
     const { data, error } = await supabaseOrigen
       .from('ventas')
-      .select('fecha_entrega, codigo_destinatario, descripcion, cantidad, cantidad_entregada')
+      .select('fecha_expedicion, codigo_destinatario, descripcion, cantidad, cantidad_entregada')
       .in('codigo_destinatario', Object.keys(VENTAS_DEST))
-      .in('fecha_entrega', ventasDates)
+      .in('fecha_expedicion', ventasDates)
     if (error) throw error
 
     const acc = {}
@@ -222,7 +222,7 @@ async function cargarHistorico() {
       const entregada = Number(row.cantidad_entregada)
       const pedida = Number(row.cantidad)
       const cajas = Number.isFinite(entregada) && entregada > 0 ? entregada : (Number.isFinite(pedida) ? pedida : 0)
-      const k = row.fecha_entrega + '|' + prodKey + '|' + plat
+      const k = row.fecha_expedicion + '|' + prodKey + '|' + plat
       acc[k] = (acc[k] ?? 0) + cajas
     }
 
