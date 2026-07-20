@@ -254,7 +254,10 @@ async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = fa
     const claveOriginal = normalizaTexto(nombreOriginal);
     const fusionar = fusionarConsumRibarroja && esConsum(nombreOriginal);
     const nombreGrupo = fusionar ? NOMBRE_CONSUM_RIBARROJA : nombreOriginal;
-    const clave = fusionar ? normalizaTexto(NOMBRE_CONSUM_RIBARROJA) : claveOriginal;
+    const claveDestino = fusionar ? normalizaTexto(NOMBRE_CONSUM_RIBARROJA) : claveOriginal;
+    // Una fila por plataforma Y fecha de entrega: dos entregas del mismo destino
+    // en fechas distintas no deben fusionarse en una sola línea.
+    const clave = `${claveDestino}|${fila.fechaEntrega || ''}`;
 
     if (!grupos.has(clave)) {
       grupos.set(clave, {
