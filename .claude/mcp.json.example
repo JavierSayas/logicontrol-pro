@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "env": {
+        "SUPABASE_URL": "https://udazraajweykauotietk.supabase.co",
+        "SUPABASE_API_KEY": "<anon key del proyecto, Dashboard > Settings > API>",
+        "SUPABASE_ACCESS_TOKEN": "<tu Personal Access Token, Dashboard > Account > Access Tokens>"
+      }
+    }
+  }
+}

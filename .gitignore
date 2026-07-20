@@ -16,6 +16,7 @@ dist-ssr
 !.env.example
 .idx/mcp.json
 .mcp.json
+.claude/mcp.json
 .netlify/
 
 # Claude Code skills locales
