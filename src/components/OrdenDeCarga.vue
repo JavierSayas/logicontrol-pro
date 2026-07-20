@@ -205,7 +205,7 @@ function esPaletRetornable(tipoPalet) {
   return t.includes('1200X800 EUROPEO');
 }
 
-const HORA_RECOGIDA_DEFECTO = '17:00-20:00';
+const HORA_RECOGIDA_DEFECTO = '15:00-19:00';
 
 function limpiarTipoPalet(tipoPalet) {
   return String(tipoPalet || '').replace(/^\s*\d+\s*/, '').trim();
@@ -307,11 +307,7 @@ async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = fa
 async function generarPDFOrden(titulo, datosParaPDF, nombreArchivo) {
   const doc = new jsPDF({ orientation: 'landscape' });
 
-  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const fechaFormatada = fechaCargaFormateada(datosParaPDF);
 
   const { filas, totalHuecos } = await prepararFilasOrden(datosParaPDF, { fusionarConsumRibarroja: false });
 
@@ -392,11 +388,7 @@ function descargarBlob(blob, nombreArchivo) {
 }
 
 async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
-  const fechaFormatada = new Date(store.fecha).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const fechaFormatada = fechaCargaFormateada(datosParaExcel);
 
   const { filas, totalHuecos } = await prepararFilasOrden(datosParaExcel, { fusionarConsumRibarroja: true });
 
@@ -720,19 +712,34 @@ function onHuecosInput(fila) {
   if (fila.retornable) fila.paletsRetornables = fila.huecos;
 }
 
-function handleHuecosKeydown(event, rowIdx) {
-  if (event.key === 'Enter') {
-    event.preventDefault();
+// Navegación tipo hoja de cálculo entre las celdas editables (Huecos,
+// Retornable, Palets Retorn.): Enter/flecha abajo baja de fila, flecha
+// arriba sube, flechas izq/dcha cambian de columna. Tab usa el orden
+// natural del DOM, no hace falta manejarlo a mano.
+const COLS_EDITABLES = ['huecos', 'retornable', 'paletsRetornables'];
 
-    const nextRowIdx = rowIdx + 1;
-    if (nextRowIdx < filas.value.length) {
-      setTimeout(() => {
-        const inputs = document.querySelectorAll('input[data-huecos-input]');
-        if (inputs[nextRowIdx]) {
-          inputs[nextRowIdx].focus();
-        }
-      }, 0);
-    }
+function focusCelda(rowIdx, colIdx) {
+  const el = document.querySelector(`[data-cell-row="${rowIdx}"][data-cell-col="${colIdx}"]`);
+  if (el) el.focus();
+}
+
+function handleCellKeydown(event, rowIdx, colIdx) {
+  const esTexto = event.target.tagName === 'INPUT' && event.target.type === 'text';
+
+  if (event.key === 'Enter' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    focusCelda(rowIdx + 1, colIdx);
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    focusCelda(rowIdx - 1, colIdx);
+  } else if (event.key === 'ArrowRight') {
+    if (esTexto && event.target.selectionStart !== event.target.value.length) return;
+    event.preventDefault();
+    focusCelda(rowIdx, colIdx + 1);
+  } else if (event.key === 'ArrowLeft') {
+    if (esTexto && event.target.selectionStart !== 0) return;
+    event.preventDefault();
+    focusCelda(rowIdx, colIdx - 1);
   }
 }
 
@@ -770,15 +777,29 @@ async function guardarYDescargarPDF(tipo) {
   if (ok) await generar();
 }
 
-// La fecha del nombre de archivo INNOVA sale de "Salida Mercancías" (SAP,
-// formato DD.MM.AAAA), no de la fecha de operaciones de la app.
-function fechaArchivoDesdeSalidaMercancias(datos) {
+// La fecha de carga real sale de "Salida Mercancías" (SAP, formato DD.MM.AAAA)
+// de los datos que se están imprimiendo, no de la fecha de operaciones de la
+// app — así el encabezado del documento siempre coincide con la Fecha
+// Recogida que sale en la tabla (ambas vienen del mismo dato).
+function parseFechaSalidaMercancias(datos) {
   const raw = datos.find(f => f.salidaMercancias)?.salidaMercancias;
   const m = String(raw ?? '').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (m) {
-    const [, dia, mes, anio] = m;
-    return `${anio}_${mes.padStart(2, '0')}_${dia.padStart(2, '0')}`;
-  }
+  if (!m) return null;
+  const [, dia, mes, anio] = m;
+  return { dia: dia.padStart(2, '0'), mes: mes.padStart(2, '0'), anio };
+}
+
+function fechaCargaFormateada(datos) {
+  const f = parseFechaSalidaMercancias(datos);
+  if (f) return `${f.dia}/${f.mes}/${f.anio}`;
+  return new Date(store.fecha).toLocaleDateString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+function fechaArchivoDesdeSalidaMercancias(datos) {
+  const f = parseFechaSalidaMercancias(datos);
+  if (f) return `${f.anio}_${f.mes}_${f.dia}`;
   return store.fecha.replace(/-/g, '_');
 }
 
@@ -935,9 +956,10 @@ async function generarPDFMosca() {
                     <input
                       v-model="fila[col.key]"
                       type="text"
-                      data-huecos-input
+                      :data-cell-row="idx"
+                      :data-cell-col="0"
                       @input="onHuecosInput(fila)"
-                      @keydown.enter="handleHuecosKeydown($event, idx)"
+                      @keydown="handleCellKeydown($event, idx, 0)"
                       class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
                     />
@@ -947,6 +969,9 @@ async function generarPDFMosca() {
                       <input
                         v-model="fila.retornable"
                         type="checkbox"
+                        :data-cell-row="idx"
+                        :data-cell-col="1"
+                        @keydown="handleCellKeydown($event, idx, 1)"
                         :title="fila.retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (fila.retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (fila.retornableInfo === 'excepcion' ? 'Excepción manual por destino (' + fila.tipoPalet + ')' : (fila.retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable')))"
                         :class="[
                           'w-5 h-5 rounded cursor-pointer accent-emerald-600',
@@ -961,6 +986,9 @@ async function generarPDFMosca() {
                       v-if="fila.retornable"
                       v-model="fila.paletsRetornables"
                       type="text"
+                      :data-cell-row="idx"
+                      :data-cell-col="2"
+                      @keydown="handleCellKeydown($event, idx, 2)"
                       class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
                     />
