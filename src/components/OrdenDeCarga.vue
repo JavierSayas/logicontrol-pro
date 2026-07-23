@@ -465,11 +465,11 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   }
 
-  // Numeración descendente 3 columnas a la derecha de la tabla (dos columnas
-  // de hueco de por medio), sin contar la fila de encabezado.
+  // Numeración de filas (1 arriba) 3 columnas a la derecha de la tabla (dos
+  // columnas de hueco de por medio), sin contar la fila de encabezado.
   const colNumeracion = COLUMNAS_ORDEN_INNOVA.length + 3;
   filas.forEach((f, i) => {
-    ws.getRow(i + 2).getCell(colNumeracion).value = filas.length - i;
+    ws.getRow(i + 2).getCell(colNumeracion).value = i + 1;
   });
 
   const plats = await obtenerPlataformasOrden(datosParaExcel);
