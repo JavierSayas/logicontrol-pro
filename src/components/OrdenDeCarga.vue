@@ -245,6 +245,30 @@ const COLUMNAS_ORDEN = [
   { header: 'Observaciones', dataKey: 'observaciones' },
 ];
 
+// Disposición de columnas específica del Excel INNOVA (distinta de la de los
+// PDF de DHL/MOSCA, que usan COLUMNAS_ORDEN tal cual).
+const COLUMNAS_ORDEN_INNOVA = [
+  { header: 'Tipo de carga',  dataKey: 'tipoPalet' },
+  { header: 'Cantidad',       dataKey: 'huecos' },
+  { header: 'Peso',           dataKey: 'peso' },
+  { header: 'ORIGEN',         dataKey: 'origen' },
+  { header: 'Fecha Recogida', dataKey: 'fechaRecogida' },
+  { header: 'Hora Recogida',  dataKey: 'horaRecogida' },
+  { header: 'Destino',        dataKey: 'destino' },
+  { header: 'Fecha Entrega',  dataKey: 'fechaEntrega' },
+  { header: 'Límite Entrega', dataKey: 'limiteEntrega' },
+  { header: 'TEMP',           dataKey: 'temp' },
+  { header: 'TARIFA (opc)',   dataKey: 'tarifa' },
+  { header: 'Referencia',     dataKey: 'transporte' },
+  { header: 'Dev. Europ.',    dataKey: 'palletsEuropeos' },
+  { header: 'Observaciones',  dataKey: 'observaciones' },
+];
+
+// Convierte fechas DD.MM.AAAA (o varias separadas por comas) a DD/MM/AAAA.
+function fechaConBarras(str) {
+  return String(str || '').replace(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g, '$1/$2/$3');
+}
+
 async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = false } = {}) {
   const totalHuecos = datosParaOrden.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
   const limites = await obtenerLimitesEntrega(datosParaOrden.map(f => f.nombreDestino));
@@ -388,68 +412,50 @@ function descargarBlob(blob, nombreArchivo) {
 }
 
 async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
-  const fechaFormatada = fechaCargaFormateada(datosParaExcel);
-
-  const { filas, totalHuecos } = await prepararFilasOrden(datosParaExcel, { fusionarConsumRibarroja: true });
+  const { filas } = await prepararFilasOrden(datosParaExcel, { fusionarConsumRibarroja: true });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'LogiControl Pro';
   wb.calcProperties.fullCalcOnLoad = true;
 
   const ws = wb.addWorksheet('Orden', {
-    views: [{ state: 'frozen', ySplit: 5 }],
+    views: [{ state: 'frozen', ySplit: 1 }],
   });
-
-  ws.mergeCells('A1:J1');
-  ws.getCell('A1').value = titulo;
-  ws.getCell('A1').font = { bold: true, size: 14 };
-  ws.getCell('A2').value = `Fecha de carga: ${fechaFormatada}`;
-  ws.getCell('A3').value = `Total huecos: ${totalHuecos}`;
-  ws.getCell('A3').font = { bold: true };
 
   ws.addTable({
     name: 'OrdenINNOVA',
-    ref: 'A5',
+    ref: 'A1',
     headerRow: true,
-    totalsRow: true,
+    totalsRow: false,
     style: { theme: 'TableStyleMedium2', showRowStripes: true },
-    columns: COLUMNAS_ORDEN.map((c, i) => {
-      const col = { name: c.header, filterButton: true };
-      if (c.dataKey === 'huecos' || c.dataKey === 'palletsEuropeos') {
-        col.totalsRowFunction = 'sum';
-      } else if (i === 0) {
-        col.totalsRowLabel = 'TOTAL';
-      }
-      return col;
-    }),
+    columns: COLUMNAS_ORDEN_INNOVA.map(c => ({ name: c.header, filterButton: true })),
     rows: filas.map(f => [
       f.tipoPalet,
       f.huecos,
-      f.fechaRecogida,
+      500,
+      'surexport',
+      fechaConBarras(f.fechaRecogida),
       f.horaRecogida,
       f.destino,
-      f.fechaEntrega,
+      fechaConBarras(f.fechaEntrega),
       f.limiteEntrega,
+      1,
+      '',
       f.transporte,
       f.palletsEuropeos,
       f.observaciones,
     ]),
   });
 
-  const anchosOrden = [28, 8, 14, 14, 30, 14, 14, 14, 16, 24];
+  const anchosOrden = [22, 10, 8, 12, 14, 14, 30, 14, 14, 8, 12, 14, 14, 24];
   anchosOrden.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  [2, 3, 4, 6, 7, 8, 9].forEach(colIdx => { ws.getColumn(colIdx).alignment = { horizontal: 'center' }; });
+  [2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13].forEach(colIdx => { ws.getColumn(colIdx).alignment = { horizontal: 'center' }; });
 
-  for (let col = 1; col <= COLUMNAS_ORDEN.length; col++) {
-    const cell = ws.getRow(5).getCell(col);
+  for (let col = 1; col <= COLUMNAS_ORDEN_INNOVA.length; col++) {
+    const cell = ws.getRow(1).getCell(col);
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   }
-
-  const totalEuropeos = filas.reduce((sum, f) => sum + (Number(f.palletsEuropeos) || 0), 0);
-  const totalsRowNum = 6 + filas.length;
-  ws.getCell(`B${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Huecos])', result: totalHuecos };
-  ws.getCell(`I${totalsRowNum}`).value = { formula: 'SUBTOTAL(109,OrdenINNOVA[Europalets Retornables])', result: totalEuropeos };
 
   const plats = await obtenerPlataformasOrden(datosParaExcel);
   if (plats.length > 0) {
