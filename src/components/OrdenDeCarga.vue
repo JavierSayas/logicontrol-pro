@@ -269,6 +269,14 @@ function fechaConBarras(str) {
   return String(str || '').replace(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g, '$1/$2/$3');
 }
 
+// Cualquier tipo de palet que contenga "1200x800" se muestra como "PALET
+// EUROPEO" en el Excel INNOVA, sea cual sea el resto del nombre.
+function tipoCargaExcel(tipoPalet) {
+  const partes = String(tipoPalet || '').split(', ').filter(Boolean);
+  const transformadas = partes.map(p => normalizaTexto(p).includes('1200X800') ? 'PALET EUROPEO' : p);
+  return [...new Set(transformadas)].join(', ');
+}
+
 async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = false } = {}) {
   const totalHuecos = datosParaOrden.reduce((sum, fila) => sum + (parseInt(fila.huecos) || 0), 0);
   const limites = await obtenerLimitesEntrega(datosParaOrden.map(f => f.nombreDestino));
@@ -430,7 +438,7 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     style: { theme: 'TableStyleMedium2', showRowStripes: true },
     columns: COLUMNAS_ORDEN_INNOVA.map(c => ({ name: c.header, filterButton: true })),
     rows: filas.map(f => [
-      f.tipoPalet,
+      tipoCargaExcel(f.tipoPalet),
       f.huecos,
       500,
       'surexport',
@@ -456,6 +464,13 @@ async function generarExcelOrden(titulo, datosParaExcel, nombreArchivo) {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   }
+
+  // Numeración descendente 3 columnas a la derecha de la tabla (dos columnas
+  // de hueco de por medio), sin contar la fila de encabezado.
+  const colNumeracion = COLUMNAS_ORDEN_INNOVA.length + 3;
+  filas.forEach((f, i) => {
+    ws.getRow(i + 2).getCell(colNumeracion).value = filas.length - i;
+  });
 
   const plats = await obtenerPlataformasOrden(datosParaExcel);
   if (plats.length > 0) {
