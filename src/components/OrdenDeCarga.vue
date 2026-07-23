@@ -139,6 +139,14 @@ function normalizaTexto(txt) {
     .toUpperCase();
 }
 
+// Quita anotaciones entre paréntesis del destino (p.ej. "(descargas)") antes
+// de comparar contra el nombre_csv registrado en Gestión de Plataformas: esas
+// anotaciones vienen del pegado de SAP y no forman parte del nombre real de
+// la plataforma, así que rompían la coincidencia exacta.
+function claveLimiteEntrega(nombreDestino) {
+  return normalizaTexto(String(nombreDestino || '').replace(/\([^)]*\)/g, ''));
+}
+
 function clienteDeDestino(nombreDestino) {
   const d = normalizaTexto(nombreDestino);
   if (d.startsWith('LIDL')) return 'LIDL';
@@ -224,7 +232,7 @@ async function obtenerLimitesEntrega(destinos) {
 
   const mapa = {};
   for (const p of (data || [])) {
-    const clave = normalizaTexto(p.nombre_csv);
+    const clave = claveLimiteEntrega(p.nombre_csv);
     if (clave && p.limite_hora_entrega) {
       mapa[clave] = String(p.limite_hora_entrega).slice(0, 5);
     }
@@ -316,7 +324,7 @@ async function prepararFilasOrden(datosParaOrden, { fusionarConsumRibarroja = fa
     if (fila.fechaEntrega) g.fechasEntrega.add(fila.fechaEntrega);
     if (fila.transporte) g.transportes.add(fila.transporte);
     if (fila.numeroEntrega) g.entregas.add(fila.numeroEntrega);
-    const limiteOriginal = limites[claveOriginal];
+    const limiteOriginal = limites[claveLimiteEntrega(nombreOriginal)];
     if (limiteOriginal) g.limitesEntrega.add(limiteOriginal);
   }
 
