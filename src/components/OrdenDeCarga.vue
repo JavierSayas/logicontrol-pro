@@ -688,8 +688,10 @@ function limpiar() {
 const filas = computed(() => store.ordenCargaData);
 const hayDatos = computed(() => filas.value.length > 0);
 
+// Cualquier ruta que empiece por "DHL" cuenta como DHL (SAP trae DHL001,
+// DHL002...), no solo la exacta "DHL001".
 const filasParaPDF = computed(() => {
-  return filas.value.filter(f => f.ruta === 'DHL001');
+  return filas.value.filter(f => f.ruta?.includes('DHL'));
 });
 
 const totalCantidad = computed(() =>
@@ -697,7 +699,7 @@ const totalCantidad = computed(() =>
 );
 
 const cantidadDHL = computed(() => {
-  return filas.value.filter(f => f.ruta === 'DHL001').length;
+  return filas.value.filter(f => f.ruta?.includes('DHL')).length;
 });
 
 const rutasINNOVA = ['ZGENER', 'SLV022', 'SLV015', 'SLV021', 'SLV020', 'SLV019'];
@@ -724,8 +726,8 @@ async function generarPDF() {
     const datosParaPDF = filasParaPDF.value;
 
     if (datosParaPDF.length === 0) {
-      error.value = 'No hay datos de DHL001 que coincidan con la fecha de operaciones.';
-      showToast('No hay datos DHL001 para la fecha ' + store.fecha, 'error');
+      error.value = 'No hay datos de DHL que coincidan con la fecha de operaciones.';
+      showToast('No hay datos DHL para la fecha ' + store.fecha, 'error');
       return;
     }
 
