@@ -210,6 +210,9 @@ function asignarHuecos(filas) {
 
 function esPaletRetornable(tipoPalet) {
   const t = normalizaTexto(tipoPalet);
+  // Un palet CHEP nunca es retornable para nosotros, aunque sea 1200x800
+  // Europeo: es de un pool gestionado por CHEP, no nuestro.
+  if (t.includes('CHEP')) return false;
   return t.includes('1200X800 EUROPEO');
 }
 
