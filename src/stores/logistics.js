@@ -112,10 +112,12 @@ export const useLogisticsStore = defineStore('logistics', {
     async guardarBorrador() {
       try {
         const fechasEntrega = [...new Set(this.ordenCargaData.map(f => f.fechaEntrega).filter(Boolean))];
+        const fechasSalidaMercancias = [...new Set(this.ordenCargaData.map(f => f.salidaMercancias).filter(Boolean))];
         const payload = {
           fecha_produccion: this.fecha,
           datos: this.ordenCargaData,
           fechas_entrega: fechasEntrega,
+          fechas_salida_mercancias: fechasSalidaMercancias,
           updated_at: new Date().toISOString(),
         };
 
@@ -165,7 +167,7 @@ export const useLogisticsStore = defineStore('logistics', {
       const limite = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('ordenes_carga_borrador')
-        .select('id, created_at, fechas_entrega')
+        .select('id, created_at, fechas_entrega, fechas_salida_mercancias')
         .gte('created_at', limite)
         .order('created_at', { ascending: false });
 

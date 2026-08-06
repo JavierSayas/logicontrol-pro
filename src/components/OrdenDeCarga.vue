@@ -1032,7 +1032,10 @@ async function generarPDFMosca() {
                 @click="cargarDesdeHistorial(h.id)"
                 class="w-full text-left px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors"
               >
-                <div class="text-xs font-semibold text-slate-700">{{ fmtFechaHistorial(h.created_at) }}</div>
+                <div class="text-base font-bold text-slate-800">
+                  {{ h.fechas_salida_mercancias?.length ? h.fechas_salida_mercancias.join(', ') : 'Salida sin datos' }}
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">Guardado {{ fmtFechaHistorial(h.created_at) }}</div>
                 <div class="text-[11px] text-slate-400 mt-0.5">
                   Entregas: {{ h.fechas_entrega?.length ? h.fechas_entrega.join(', ') : '—' }}
                 </div>
