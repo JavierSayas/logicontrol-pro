@@ -630,6 +630,45 @@ async function marcarRetornables(filas) {
   }
 }
 
+// Destinos donde, al fusionar varias líneas del mismo envío, el hueco por
+// defecto es 1 fijo (no la suma de cada línea): Aldi y Corte Inglés
+// Mercamadrid.
+function esDestinoHuecoFijo(nombreDestino) {
+  const d = normalizaTexto(nombreDestino);
+  if (d.includes('ALDI')) return true;
+  if (d.includes('CORTE INGL') && d.includes('MERCAMADRID')) return true;
+  return false;
+}
+
+// Varias líneas de SAP con el mismo destino y fecha de entrega (mismo envío,
+// productos distintos) se fusionan: la primera línea del grupo pasa a llevar
+// el hueco y los palets retornables de todo el grupo, y el resto se pone a 0
+// para que las sumas automáticas (prepararFilasOrden, etc.) no dupliquen el
+// total. Grupos de una sola línea no se tocan.
+function fusionarGruposDestinoFecha(filas) {
+  const grupos = new Map();
+  for (const fila of filas) {
+    const clave = `${normalizaTexto(fila.nombreDestino)}|${fila.fechaEntrega || ''}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(fila);
+  }
+
+  for (const lineas of grupos.values()) {
+    if (lineas.length < 2) continue;
+
+    const [principal, ...resto] = lineas;
+    const huecosSumados = lineas.reduce((s, f) => s + (parseInt(f.huecos) || 0), 0);
+    principal.huecos = esDestinoHuecoFijo(principal.nombreDestino) ? '1' : String(huecosSumados);
+    principal.retornable = lineas.some(f => f.retornable);
+    principal.paletsRetornables = String(lineas.filter(f => f.retornable).length);
+
+    for (const fila of resto) {
+      fila.huecos = '0';
+      fila.paletsRetornables = '0';
+    }
+  }
+}
+
 async function handlePaste(event) {
   event.preventDefault();
   error.value = '';
@@ -677,6 +716,7 @@ async function handlePaste(event) {
   showToast(`${filas.length} filas cargadas correctamente`, 'success');
 
   await marcarRetornables(store.ordenCargaData);
+  fusionarGruposDestinoFecha(store.ordenCargaData);
 }
 
 function limpiar() {
@@ -687,6 +727,24 @@ function limpiar() {
 
 const filas = computed(() => store.ordenCargaData);
 const hayDatos = computed(() => filas.value.length > 0);
+
+// Agrupa las filas para mostrarlas en tabla: mismo destino + fecha de
+// entrega = una sola fila visual (ver fusionarGruposDestinoFecha, que ya
+// dejó el hueco/palet real en lineas[0] y el resto a 0).
+const gruposDestinoFecha = computed(() => {
+  const mapa = new Map();
+  const orden = [];
+  for (const fila of filas.value) {
+    const clave = `${normalizaTexto(fila.nombreDestino)}|${fila.fechaEntrega || ''}`;
+    if (!mapa.has(clave)) {
+      const grupo = { clave, lineas: [] };
+      mapa.set(clave, grupo);
+      orden.push(grupo);
+    }
+    mapa.get(clave).lineas.push(fila);
+  }
+  return orden;
+});
 
 // Cualquier ruta que empiece por "DHL" cuenta como DHL (SAP trae DHL001,
 // DHL002...), no solo la exacta "DHL001".
@@ -960,7 +1018,7 @@ async function generarPDFMosca() {
 
             <template v-else>
               <tr
-                v-for="(fila, idx) in filas"
+                v-for="(grupo, idx) in gruposDestinoFecha"
                 :key="idx"
                 :class="[
                   'border-t border-slate-100 transition-colors',
@@ -983,13 +1041,23 @@ async function generarPDFMosca() {
                     'bg-slate-50/80': col.key === 'retornable' || col.key === 'paletsRetornables',
                   }"
                 >
-                  <template v-if="col.editable && col.key === 'huecos'">
+                  <template v-if="col.key === 'denominacion'">
+                    <div v-for="(l, li) in grupo.lineas" :key="li" class="text-xs font-medium text-slate-700" :class="{ 'mt-1.5 pt-1.5 border-t border-slate-100': li > 0 }">
+                      {{ l.denominacion || '—' }}
+                    </div>
+                  </template>
+                  <template v-else-if="col.key === 'cantidadPedido'">
+                    <div v-for="(l, li) in grupo.lineas" :key="li" class="text-right font-bold text-brand-700 text-sm" :class="{ 'mt-1.5 pt-1.5 border-t border-slate-100': li > 0 }">
+                      {{ l.cantidadPedido || '—' }}
+                    </div>
+                  </template>
+                  <template v-else-if="col.editable && col.key === 'huecos'">
                     <input
-                      v-model="fila[col.key]"
+                      v-model="grupo.lineas[0].huecos"
                       type="text"
                       :data-cell-row="idx"
                       :data-cell-col="0"
-                      @input="onHuecosInput(fila)"
+                      @input="onHuecosInput(grupo.lineas[0])"
                       @keydown="handleCellKeydown($event, idx, 0)"
                       class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-center font-bold text-sm bg-white focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
                       placeholder="—"
@@ -998,24 +1066,24 @@ async function generarPDFMosca() {
                   <template v-else-if="col.editable && col.key === 'retornable'">
                     <div class="flex items-center justify-center">
                       <input
-                        v-model="fila.retornable"
+                        v-model="grupo.lineas[0].retornable"
                         type="checkbox"
                         :data-cell-row="idx"
                         :data-cell-col="1"
                         @keydown="handleCellKeydown($event, idx, 1)"
-                        :title="fila.retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (fila.retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (fila.retornableInfo === 'excepcion' ? 'Excepción manual por destino (' + fila.tipoPalet + ')' : (fila.retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable')))"
+                        :title="grupo.lineas[0].retornableInfo === 'ambiguo' ? 'Palet ambiguo por cliente: revisa manualmente' : (grupo.lineas[0].retornableInfo === 'sin-datos' ? 'Producto no encontrado en maestro: marca manualmente' : (grupo.lineas[0].retornableInfo === 'excepcion' ? 'Excepción manual por destino (' + grupo.lineas[0].tipoPalet + ')' : (grupo.lineas[0].retornable ? 'Palet retornable (1200x800 europeo)' : 'Palet no retornable')))"
                         :class="[
                           'w-5 h-5 rounded cursor-pointer accent-emerald-600',
-                          fila.retornableInfo === 'ambiguo' || fila.retornableInfo === 'sin-datos' ? 'ring-1 ring-amber-300' : '',
-                          fila.retornableInfo === 'excepcion' ? 'ring-1 ring-sky-300' : '',
+                          grupo.lineas[0].retornableInfo === 'ambiguo' || grupo.lineas[0].retornableInfo === 'sin-datos' ? 'ring-1 ring-amber-300' : '',
+                          grupo.lineas[0].retornableInfo === 'excepcion' ? 'ring-1 ring-sky-300' : '',
                         ]"
                       />
                     </div>
                   </template>
                   <template v-else-if="col.editable && col.key === 'paletsRetornables'">
                     <input
-                      v-if="fila.retornable"
-                      v-model="fila.paletsRetornables"
+                      v-if="grupo.lineas[0].retornable"
+                      v-model="grupo.lineas[0].paletsRetornables"
                       type="text"
                       :data-cell-row="idx"
                       :data-cell-col="2"
@@ -1028,11 +1096,10 @@ async function generarPDFMosca() {
                   <template v-else>
                     <span :class="{
                       'font-bold text-slate-900 text-sm': col.key === 'nombreDestino',
-                      'text-brand-700 font-bold text-right block': col.key === 'cantidadPedido',
                       'text-slate-500 text-xs font-medium': col.key === 'salidaMercancias' || col.key === 'motivoPedido',
-                      'text-slate-700 text-xs font-medium': col.key !== 'nombreDestino' && col.key !== 'cantidadPedido' && col.key !== 'salidaMercancias' && col.key !== 'motivoPedido' && col.key !== 'ruta',
+                      'text-slate-700 text-xs font-medium': col.key !== 'nombreDestino' && col.key !== 'salidaMercancias' && col.key !== 'motivoPedido' && col.key !== 'ruta',
                     }">
-                      {{ fila[col.key] || '—' }}
+                      {{ grupo.lineas[0][col.key] || '—' }}
                     </span>
                   </template>
                 </td>
