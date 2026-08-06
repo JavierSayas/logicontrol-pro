@@ -11,6 +11,7 @@ export const useLogisticsStore = defineStore('logistics', {
     ordenCargaData: [],
     matrixOrders: {}, // { "COCO": { "MIRANDA": 10, "SAGUNTO": 5 } }
     ordenesGuardadas: [],
+    borradorActualId: null, // fila de ordenes_carga_borrador que se sigue actualizando mientras se edita
   }),
   actions: {
     setSapData(data) {
@@ -102,6 +103,88 @@ export const useLogisticsStore = defineStore('logistics', {
         console.error('Error actualizando huecos:', error);
         return { success: false, error: error.message };
       }
-    }
+    },
+
+    // ── BORRADOR (autoguardado 72h) ────────────────────────────────────────
+    // Guarda el estado completo de la tabla (huecos, palets, todo) para no
+    // perderlo al recargar. Primera vez de una carga → crea fila nueva;
+    // ediciones posteriores → actualiza la misma fila.
+    async guardarBorrador() {
+      try {
+        const fechasEntrega = [...new Set(this.ordenCargaData.map(f => f.fechaEntrega).filter(Boolean))];
+        const payload = {
+          fecha_produccion: this.fecha,
+          datos: this.ordenCargaData,
+          fechas_entrega: fechasEntrega,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (this.borradorActualId) {
+          const { error } = await supabase
+            .from('ordenes_carga_borrador')
+            .update(payload)
+            .eq('id', this.borradorActualId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase
+            .from('ordenes_carga_borrador')
+            .insert(payload)
+            .select('id')
+            .single();
+          if (error) throw error;
+          this.borradorActualId = data.id;
+        }
+
+        const limite = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+        await supabase.from('ordenes_carga_borrador').delete().lt('created_at', limite);
+      } catch (error) {
+        console.error('Error guardando borrador:', error);
+      }
+    },
+
+    // Carga automáticamente el borrador más reciente de las últimas 72h (al
+    // abrir la pantalla). Devuelve true si encontró y cargó algo.
+    async cargarUltimoBorrador() {
+      const limite = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('ordenes_carga_borrador')
+        .select('*')
+        .gte('created_at', limite)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return false;
+      this.ordenCargaData = data.datos || [];
+      this.borradorActualId = data.id;
+      return true;
+    },
+
+    // Lista de borradores de las últimas 72h (para el desplegable de historial)
+    async listarBorradores() {
+      const limite = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('ordenes_carga_borrador')
+        .select('id, created_at, fechas_entrega')
+        .gte('created_at', limite)
+        .order('created_at', { ascending: false });
+
+      if (error) return [];
+      return data || [];
+    },
+
+    // Carga un borrador concreto elegido del historial
+    async cargarBorrador(id) {
+      const { data, error } = await supabase
+        .from('ordenes_carga_borrador')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return false;
+      this.ordenCargaData = data.datos || [];
+      this.borradorActualId = data.id;
+      return true;
+    },
   }
 })

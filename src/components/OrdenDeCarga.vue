@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useLogisticsStore } from '../stores/logistics';
 import { supabase, supabaseOrigen } from '../lib/supabase';
-import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle } from 'lucide-vue-next';
+import { Truck, AlertCircle, RefreshCw, FileDown, CheckCircle2, XCircle, History } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
@@ -711,6 +711,7 @@ async function handlePaste(event) {
 
   asignarHuecos(filas);
 
+  store.borradorActualId = null; // pegado nuevo → nueva entrada en el historial, no se pisa la anterior
   store.setOrdenCarga(filas);
   error.value = '';
   showToast(`${filas.length} filas cargadas correctamente`, 'success');
@@ -721,9 +722,49 @@ async function handlePaste(event) {
 
 function limpiar() {
   error.value = '';
+  store.borradorActualId = null;
   store.setOrdenCarga([]);
   showToast('Carga limpiada', 'success');
 }
+
+// ── AUTOGUARDADO (borrador 72h) ─────────────────────────────────────────────
+let debounceBorrador = null;
+watch(() => store.ordenCargaData, () => {
+  if (store.ordenCargaData.length === 0) return;
+  clearTimeout(debounceBorrador);
+  debounceBorrador = setTimeout(() => store.guardarBorrador(), 800);
+}, { deep: true });
+
+const historialAbierto = ref(false);
+const historialLista = ref([]);
+const historialCargando = ref(false);
+
+async function abrirHistorial() {
+  historialAbierto.value = !historialAbierto.value;
+  if (!historialAbierto.value) return;
+  historialCargando.value = true;
+  historialLista.value = await store.listarBorradores();
+  historialCargando.value = false;
+}
+
+async function cargarDesdeHistorial(id) {
+  clearTimeout(debounceBorrador);
+  const ok = await store.cargarBorrador(id);
+  historialAbierto.value = false;
+  if (ok) showToast('Historial cargado', 'success');
+  else showToast('No se pudo cargar ese historial', 'error');
+}
+
+function fmtFechaHistorial(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+onMounted(async () => {
+  if (store.ordenCargaData.length === 0) {
+    await store.cargarUltimoBorrador();
+  }
+});
 
 const filas = computed(() => store.ordenCargaData);
 const hayDatos = computed(() => filas.value.length > 0);
@@ -971,6 +1012,33 @@ async function generarPDFMosca() {
             <RefreshCw class="w-4 h-4" />
             Nueva carga
           </Button>
+
+          <div class="relative">
+            <Button variant="secondary" @click="abrirHistorial">
+              <History class="w-4 h-4" />
+              Historial (72h)
+            </Button>
+            <div
+              v-if="historialAbierto"
+              class="absolute right-0 mt-1 w-80 max-h-96 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50"
+            >
+              <div v-if="historialCargando" class="px-4 py-6 text-center text-sm text-slate-400">Cargando...</div>
+              <div v-else-if="historialLista.length === 0" class="px-4 py-6 text-center text-sm text-slate-400">
+                No hay guardados en las últimas 72h
+              </div>
+              <button
+                v-for="h in historialLista"
+                :key="h.id"
+                @click="cargarDesdeHistorial(h.id)"
+                class="w-full text-left px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors"
+              >
+                <div class="text-xs font-semibold text-slate-700">{{ fmtFechaHistorial(h.created_at) }}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">
+                  Entregas: {{ h.fechas_entrega?.length ? h.fechas_entrega.join(', ') : '—' }}
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </template>
     </PageHeader>
