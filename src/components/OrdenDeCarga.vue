@@ -1021,12 +1021,12 @@ async function generarPDFMosca() {
                 v-for="(grupo, idx) in gruposDestinoFecha"
                 :key="idx"
                 :class="[
-                  'border-t border-slate-100 transition-colors',
+                  'border-t-4 border-slate-300 transition-colors',
                   idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-50/40 hover:bg-slate-50/80'
                 ]"
               >
                 <td :class="[
-                  'sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100',
+                  'sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100 align-top',
                   idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
                 ]">
                   {{ idx + 1 }}
@@ -1034,7 +1034,7 @@ async function generarPDFMosca() {
                 <td
                   v-for="col in COLUMNAS"
                   :key="col.key"
-                  class="px-3 py-2.5 transition-colors"
+                  class="px-3 py-2.5 transition-colors align-top"
                   :class="{
                     'break-words': col.key === 'nombreDestino' || col.key === 'denominacion',
                     'bg-slate-50/80 border-l-2 border-l-slate-200': col.key === 'huecos',
