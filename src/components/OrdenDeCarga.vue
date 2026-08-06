@@ -1095,7 +1095,7 @@ async function generarPDFMosca() {
               >
                 <td :class="[
                   'sticky left-0 z-10 px-3 py-2.5 text-center text-slate-400 font-mono font-semibold text-xs border-r border-slate-100 align-top',
-                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                 ]">
                   {{ idx + 1 }}
                 </td>
