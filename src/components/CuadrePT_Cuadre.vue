@@ -145,7 +145,19 @@ const opcionesFechaEntrega = computed(() => [
   { value: addDaysISO(3), label: new Date(addDaysISO(3) + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) },
 ])
 
-const pedidoLidl = ref({ plataforma: '', fecha_entrega: '', cantidad: null })
+// Pedidos a medias: una fila por producto de Lidl, guardadas por fecha+producto.
+// Los productos salen del propio Cuadre, así que si mañana se da de alta otro
+// de Lidl aparece aquí solo, sin tocar código.
+const filasLidl = computed(() => filas.value.filter(esLidl))
+const pedidosLidl = ref({})   // producto -> { plataforma, fecha_entrega, cantidad }
+const PEDIDO_VACIO = { plataforma: '', fecha_entrega: '', cantidad: null }
+
+// Lectura pura: cargarPedidoLidl() siembra una entrada por producto, así que
+// aquí no se crea nada. Crearla al vuelo sería mutar estado reactivo durante el
+// render, que repinta en bucle y dispara el autoguardado solo.
+function pedidoDe(producto) {
+  return pedidosLidl.value[producto] || PEDIDO_VACIO
+}
 
 // Stock Inicial y Salidas manuales viven en planificacion_aldi_stock, la
 // tabla de CMI (misma que ya usa cargarStock()), para que ambos sistemas
@@ -380,19 +392,23 @@ async function cargarFabricado() {
 async function cargarPedidoLidl() {
   const { data, error } = await supabase
     .from('cuadre_pt_pedidos_lidl')
-    .select('plataforma, fecha_entrega, cantidad')
+    .select('producto, plataforma, fecha_entrega, cantidad')
     .eq('fecha', fecha.value)
-    .maybeSingle()
   if (error) throw error
-  if (data) {
-    pedidoLidl.value = {
-      plataforma: data.plataforma ?? '',
-      fecha_entrega: data.fecha_entrega ?? '',
-      cantidad: data.cantidad,
+  const guardados = {}
+  for (const r of (data || [])) {
+    guardados[r.producto] = {
+      plataforma: r.plataforma ?? '',
+      fecha_entrega: r.fecha_entrega ?? '',
+      cantidad: r.cantidad,
     }
-  } else {
-    pedidoLidl.value = { plataforma: '', fecha_entrega: '', cantidad: null }
   }
+  // Una entrada por producto de Lidl aunque aún no tenga fila guardada.
+  const mapa = {}
+  for (const f of filasLidl.value) {
+    mapa[f.producto] = guardados[f.producto] ?? { ...PEDIDO_VACIO }
+  }
+  pedidosLidl.value = mapa
 }
 
 // mostrarCarga=false (recargas por tiempo real): actualiza los datos sin
@@ -428,12 +444,16 @@ async function guardarTodo() {
         .upsert(rows, { onConflict: 'fecha,cliente,producto' }),
       supabase
         .from('cuadre_pt_pedidos_lidl')
-        .upsert([{
-          fecha: fecha.value,
-          plataforma: pedidoLidl.value.plataforma || null,
-          fecha_entrega: pedidoLidl.value.fecha_entrega || null,
-          cantidad: pedidoLidl.value.cantidad == null ? null : Math.round(pedidoLidl.value.cantidad),
-        }], { onConflict: 'fecha' }),
+        .upsert(filasLidl.value.map(f => {
+          const p = pedidosLidl.value[f.producto] || {}
+          return {
+            fecha: fecha.value,
+            producto: f.producto,
+            plataforma: p.plataforma || null,
+            fecha_entrega: p.fecha_entrega || null,
+            cantidad: p.cantidad == null ? null : Math.round(p.cantidad),
+          }
+        }), { onConflict: 'fecha,producto' }),
     ])
     if (e1) throw e1
     if (e2) throw e2
@@ -453,7 +473,7 @@ function scheduleAutoSave() {
 }
 
 watch(realidadData, scheduleAutoSave, { deep: true })
-watch(pedidoLidl, scheduleAutoSave, { deep: true })
+watch(pedidosLidl, scheduleAutoSave, { deep: true })
 watch(fecha, cargarDatos)
 
 async function init() {
@@ -850,13 +870,13 @@ async function guardarConfiguracionProductos() {
               </tr>
             </thead>
             <tbody>
-              <tr>
+              <tr v-for="fila in filasLidl" :key="fila.producto">
                 <td class="px-3 py-2 text-center font-semibold text-slate-700 whitespace-nowrap border-b border-slate-100">
-                  Cilindro
+                  {{ fila.producto }}
                 </td>
                 <td class="p-0.5 bg-amber-50 border-b border-slate-100">
                   <select
-                    v-model="pedidoLidl.plataforma"
+                    v-model="pedidoDe(fila.producto).plataforma"
                     class="w-full min-w-[120px] bg-transparent outline-none focus:bg-amber-100 px-2 py-1 text-sm font-medium text-slate-900 cursor-pointer"
                   >
                     <option value="">—</option>
@@ -865,7 +885,7 @@ async function guardarConfiguracionProductos() {
                 </td>
                 <td class="p-0.5 bg-amber-50 border-b border-slate-100">
                   <select
-                    v-model="pedidoLidl.fecha_entrega"
+                    v-model="pedidoDe(fila.producto).fecha_entrega"
                     class="w-full min-w-[140px] bg-transparent outline-none focus:bg-amber-100 px-2 py-1 text-sm font-medium text-slate-900 cursor-pointer"
                   >
                     <option value="">—</option>
@@ -876,7 +896,7 @@ async function guardarConfiguracionProductos() {
                   <input
                     type="number"
                     step="1"
-                    v-model.number="pedidoLidl.cantidad"
+                    v-model.number="pedidoDe(fila.producto).cantidad"
                     class="w-full min-w-[80px] text-center bg-transparent outline-none focus:bg-amber-100 rounded px-1 py-1 text-sm font-semibold text-slate-900"
                     placeholder="0"
                   />
