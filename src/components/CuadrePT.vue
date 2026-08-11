@@ -21,9 +21,7 @@ const subtabs = [
   { id: 'lidl',          label: 'Lidl',               icon: Building2 },
 ]
 
-const SUBPESTANAS_POR_ROL = {
-  logistica: ['lidl'],
-}
+const SUBPESTANAS_POR_ROL = {}
 
 const subtabsVisibles = computed(() => {
   const permitidas = SUBPESTANAS_POR_ROL[auth.role]
