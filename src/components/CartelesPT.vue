@@ -114,7 +114,9 @@ function onTeclado(e) {
 async function loadImageAsDataUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    // Sin crossOrigin: la imagen es del mismo origen (/Imagen1.png), y forzar
+    // modo CORS aquí hacía fallar la carga porque el hosting estático no
+    // manda cabecera Access-Control-Allow-Origin en los assets.
     img.onload = () => {
       const canvas = document.createElement('canvas')
       canvas.width = img.width
@@ -197,7 +199,7 @@ async function generarCartel() {
       doc.setFontSize(10)
       doc.setFont('helvetica', 'italic')
       doc.setTextColor(150)
-      doc.text('(Imagen no-remontar.png no encontrada en /public/)', pageW / 2, y + 20, { align: 'center' })
+      doc.text('(Imagen Imagen1.png no encontrada en /public/)', pageW / 2, y + 20, { align: 'center' })
       doc.setTextColor(0)
     }
 
