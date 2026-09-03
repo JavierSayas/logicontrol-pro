@@ -6,7 +6,7 @@
 // del navegador).
 //
 // Variables de entorno (panel de Netlify, NO en el bundle VITE_*):
-//   CMI_SUPABASE_URL         obligatoria. https://batlqdllyxdwshjmruhn.supabase.co
+//   CMI_SUPABASE_URL         obligatoria. https://uoarbfkhgfpqsbbejhhw.supabase.co
 //   CMI_SERVICE_ROLE_KEY     obligatoria. service_role key del proyecto de CMI.
 
 const { createClient } = require('@supabase/supabase-js')
