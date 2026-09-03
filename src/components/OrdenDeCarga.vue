@@ -566,7 +566,7 @@ async function marcarRetornables(filas) {
   const [{ data, error: errProd }, excepciones] = await Promise.all([
     supabaseOrigen
       .from('productos')
-      .select('nombre_sap, cliente, cliente_alias, tipo_palet')
+      .select('nombre_sap, cliente, cliente_alias, tipo_palet, cajas_base, cajas_max_altura')
       .eq('en_activo', true)
       .eq('pendiente_lanzar', false),
     obtenerExcepcionesPalet(),
@@ -585,6 +585,7 @@ async function marcarRetornables(filas) {
       clienteNorm: normalizaTexto(`${p.cliente || ''} ${p.cliente_alias || ''}`),
       tipoPalet: p.tipo_palet || '',
       retornable: esPaletRetornable(p.tipo_palet),
+      cajasPorHueco: (p.cajas_base && p.cajas_max_altura) ? p.cajas_base * p.cajas_max_altura : null,
     });
   }
 
@@ -629,6 +630,14 @@ async function marcarRetornables(filas) {
     fila.retornableInfo = tiposCandidatas.size > 1
       ? 'ambiguo'
       : (tiposDistintos.size > 1 ? 'auto-cliente' : 'auto');
+
+    // El hueco real lo determina el maestro de productos (cajas base x cajas
+    // máx. altura del palet), para cualquier cliente/destino. Si el producto
+    // no tiene esos datos en el maestro, se deja el valor que ya había
+    // asignado asignarHuecos() como aproximación.
+    if (resuelta.cajasPorHueco) {
+      fila.huecos = String(huecosPorCajas(fila.cantidadPedido, resuelta.cajasPorHueco));
+    }
   }
 
   // Por defecto 1 palet retornable por hueco, pero editable a mano en la tabla
