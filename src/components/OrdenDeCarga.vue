@@ -280,15 +280,18 @@ function fechaConBarras(str) {
   return String(str || '').replace(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g, '$1/$2/$3');
 }
 
-// En el Excel INNOVA, un palet 1200x800 "Europeo" se muestra como "PALET
-// EUROPEO"; cualquier otro tipo (CHEP, LOGIFRUIT, sin palé, o un 1200x800
-// genérico sin ese sufijo) se muestra tal cual figura en el maestro de
-// productos, sin adivinar si es "Americano" o no.
+// En el Excel INNOVA, cualquier palet 1200x800 que NO sea Chep ni Logifruit
+// se muestra como "PALET EUROPEO" (incluye tanto el que lleva el sufijo
+// "EUROPEO" en el maestro como el genérico sin sufijo). Chep y Logifruit son
+// pools de palets gestionados por terceros, no palets propios "Europeos", así
+// que se excluyen explícitamente en vez de exigir la palabra "EUROPEO" en el
+// texto (eso dejaba fuera al genérico, que también es un Europeo estándar).
 function tipoCargaExcel(tipoPalet) {
   const partes = String(tipoPalet || '').split(', ').filter(Boolean);
   const transformadas = partes.map(p => {
     const n = normalizaTexto(p);
-    return (n.includes('1200X800') && n.includes('EUROPEO')) ? 'PALET EUROPEO' : p;
+    if (!n.includes('1200X800') || n.includes('CHEP') || n.includes('LOGIFRUIT')) return p;
+    return 'PALET EUROPEO';
   });
   return [...new Set(transformadas)].join(', ');
 }
