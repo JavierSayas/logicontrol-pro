@@ -280,15 +280,15 @@ function fechaConBarras(str) {
   return String(str || '').replace(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g, '$1/$2/$3');
 }
 
-// En el Excel INNOVA, cualquier palet 1200x800 "Europeo" se muestra como
-// "PALET EUROPEO"; un 1200x800 sin ese sufijo (y que no sea CHEP) se muestra
-// como "PALET AMERICANO".
+// En el Excel INNOVA, un palet 1200x800 "Europeo" se muestra como "PALET
+// EUROPEO"; cualquier otro tipo (CHEP, LOGIFRUIT, sin palé, o un 1200x800
+// genérico sin ese sufijo) se muestra tal cual figura en el maestro de
+// productos, sin adivinar si es "Americano" o no.
 function tipoCargaExcel(tipoPalet) {
   const partes = String(tipoPalet || '').split(', ').filter(Boolean);
   const transformadas = partes.map(p => {
     const n = normalizaTexto(p);
-    if (!n.includes('1200X800') || n.includes('CHEP')) return p;
-    return n.includes('EUROPEO') ? 'PALET EUROPEO' : 'PALET AMERICANO';
+    return (n.includes('1200X800') && n.includes('EUROPEO')) ? 'PALET EUROPEO' : p;
   });
   return [...new Set(transformadas)].join(', ');
 }
