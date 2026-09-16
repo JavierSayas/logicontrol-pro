@@ -9,8 +9,9 @@ import Basculas from './components/Basculas.vue'
 import CuadrePT from './components/CuadrePT.vue'
 import Albaranes from './components/Albaranes.vue'
 import Preventivos from './components/Preventivos.vue'
+import HigienicoSanitario from './components/HigienicoSanitario.vue'
 import Login from './components/Login.vue'
-import { Truck, Tag, Scale, ClipboardList, FileText, Wrench, LogOut } from 'lucide-vue-next'
+import { Truck, Tag, Scale, ClipboardList, FileText, Wrench, ShieldCheck, LogOut } from 'lucide-vue-next'
 
 const store = useLogisticsStore()
 const auth = useAuthStore()
@@ -22,6 +23,7 @@ const tabs = [
   { id: 'cuadre', label: 'Pedidos', icon: ClipboardList },
   { id: 'albaranes', label: 'Albaranes', icon: FileText },
   { id: 'preventivos', label: 'Preventivos maquinaria', icon: Wrench },
+  { id: 'higienico', label: 'Higiénico Sanitario', icon: ShieldCheck },
 ]
 
 const TODAS_LAS_PESTANAS = tabs.map(t => t.id)
@@ -29,7 +31,7 @@ const TODAS_LAS_PESTANAS = tabs.map(t => t.id)
 const PERMISOS_POR_ROL = {
   admin: TODAS_LAS_PESTANAS,
   user: TODAS_LAS_PESTANAS,
-  logistica: ['pedidos', 'basculas', 'carteles', 'preventivos', 'cuadre', 'albaranes'],
+  logistica: ['pedidos', 'basculas', 'carteles', 'preventivos', 'cuadre', 'albaranes', 'higienico'],
 }
 
 const pestanasPermitidas = computed(() => {
@@ -214,6 +216,7 @@ async function handleLogout() {
         <CuadrePT v-else-if="store.activeTab === 'cuadre'" />
         <Albaranes v-else-if="store.activeTab === 'albaranes'" />
         <Preventivos v-else-if="store.activeTab === 'preventivos'" />
+        <HigienicoSanitario v-else-if="store.activeTab === 'higienico'" />
       </keep-alive>
     </main>
   </div>
