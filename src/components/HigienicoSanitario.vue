@@ -508,27 +508,33 @@ async function finalizar() {
 // Cada marca se guarda al momento: la actividad dura horas y nadie va a pulsar
 // un botón de guardar al final.
 
+// Optimista: la marca se ve en pantalla al instante y el guardado viaja en
+// segundo plano. Si falla, se revierte solo ese valor (no hace falta
+// recargar el parte entero, que además perdería lo que se hubiera tocado
+// mientras tanto).
 async function guardarRegistro(campo, valor) {
   if (!registro.value) return
+  const anterior = registro.value[campo]
+  registro.value[campo] = valor
   try {
     await llamar('guardarRegistroCampo', { registro_id: registro.value.id, campo, valor })
-    registro.value[campo] = valor
   } catch (e) {
+    registro.value[campo] = anterior
     toastError(e.message)
-    await cargar()
   }
 }
 
 async function guardarGafas(valor) {
   if (!registro.value || valor == null) return
   if (registro.value.gafas === valor && gafasLog.value.length) return
+  const anterior = registro.value.gafas
+  registro.value.gafas = valor
   try {
     const data = await llamar('guardarGafas', { registro_id: registro.value.id, valor })
-    registro.value.gafas = data.gafas
     if (data.nuevaEntrada) gafasLog.value.push(data.nuevaEntrada)
   } catch (e) {
+    registro.value.gafas = anterior
     toastError(e.message)
-    await cargar()
   }
 }
 
@@ -536,12 +542,13 @@ async function guardarFila(objeto, campo, valor) {
   const f = filaDe(objeto)
   if (!f || !registro.value) return
   const v = valor === '' || valor === null ? null : valor
+  const anterior = f[campo]
+  f[campo] = v
   try {
     await llamar('guardarFilaObjeto', { registro_id: registro.value.id, fila_id: f.id, campo, valor: v })
-    f[campo] = v
   } catch (e) {
+    f[campo] = anterior
     toastError(e.message)
-    await cargar()
   }
 }
 
@@ -553,12 +560,13 @@ async function guardarFilaZona(z, campo, valor) {
   const f = filaZonaDe(z)
   if (!f || !registro.value) return
   const v = valor === '' || valor === null ? null : valor
+  const anterior = f[campo]
+  f[campo] = v
   try {
     await llamar('guardarFilaZona', { registro_id: registro.value.id, fila_id: f.id, campo, valor: v })
-    f[campo] = v
   } catch (e) {
+    f[campo] = anterior
     toastError(e.message)
-    await cargar()
   }
 }
 const guardarMarcaZona  = (z, fase, valor) => guardarFilaZona(z, campoZona(fase), valor)
